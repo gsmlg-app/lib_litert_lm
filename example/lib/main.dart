@@ -252,6 +252,7 @@ class _LiteRtLmExampleScreenState extends State<LiteRtLmExampleScreen> {
             ),
             const SizedBox(height: 12),
             SegmentedButton<String>(
+              key: const ValueKey('backendSelector'),
               segments: const [
                 ButtonSegment(
                   value: 'cpu',
@@ -277,6 +278,7 @@ class _LiteRtLmExampleScreenState extends State<LiteRtLmExampleScreen> {
             if (_backend == 'npu') ...[
               const SizedBox(height: 12),
               TextField(
+                key: const ValueKey('npuDispatchDirField'),
                 controller: _dispatchDirController,
                 enabled: !_loading && !_generating,
                 decoration: const InputDecoration(
@@ -313,7 +315,11 @@ class _LiteRtLmExampleScreenState extends State<LiteRtLmExampleScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            Text(_status, style: Theme.of(context).textTheme.labelLarge),
+            Text(
+              _status,
+              key: const ValueKey('statusText'),
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
             const Divider(height: 32),
             SelectableText(
               _output.isEmpty ? ' ' : _output,

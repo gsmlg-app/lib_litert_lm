@@ -109,6 +109,10 @@ jobs:
         working-directory: example
         run: flutter test
 
+      - name: Run example e2e smoke
+        working-directory: example
+        run: flutter test integration_test/app_e2e_test.dart -d flutter-tester
+
       - name: Build native Android Vulkan/NPU bundle
         env:
           ABI: arm64-v8a
