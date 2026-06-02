@@ -153,6 +153,14 @@ EOF
   fi
 }
 
+patch_minizip_archive() {
+  local src_dir="$1"
+  local workspace_file="$src_dir/WORKSPACE"
+
+  perl -0pi -e 's#url = "https://zlib\.net/fossils/zlib-1\.3\.1\.tar\.gz",#urls = [\n        "https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz",\n        "https://zlib.net/fossils/zlib-1.3.1.tar.gz",\n    ],#' \
+    "$workspace_file"
+}
+
 fetch_gpu_prebuilts() {
   local src_dir="$1"
 
@@ -338,6 +346,7 @@ main() {
   bazel="$(find_bazel)"
   src_dir="$(checkout_source)"
   patch_shared_target "$src_dir"
+  patch_minizip_archive "$src_dir"
   fetch_gpu_prebuilts "$src_dir"
 
   local targets=("//c:$LIB_NAME")

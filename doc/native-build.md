@@ -56,6 +56,11 @@ This keeps the C API names in the dynamic symbol table for Dart FFI lookup.
 The script then verifies that at least `litert_lm_engine_create` and
 `litert_lm_session_generate_content_stream` are exported.
 
+The script also patches LiteRT-LM's `minizip` `http_archive` to include the
+official GitHub zlib release URL before `zlib.net`. The checksum stays pinned
+to the upstream LiteRT-LM value; this only gives Bazel a stable mirror if one
+archive endpoint returns a corrupt or partial download.
+
 ## LiteRt Linkage Choice
 
 This package uses static linkage for the core LiteRT C API inside
