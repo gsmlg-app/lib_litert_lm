@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   build-native-android:
-    name: Build LiteRT-LM shared library (${{ inputs.abi }})
+    name: Build LiteRT-LM Vulkan/NPU bundle (${{ inputs.abi }})
     runs-on: ubuntu-latest
     timeout-minutes: 360
 
@@ -44,18 +44,19 @@ jobs:
 
       - name: Install Android NDK
         run: |
-          sdkmanager "platform-tools" "platforms;android-36" "ndk;27.0.12077973"
-          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.0.12077973" >> "$GITHUB_ENV"
+          sdkmanager "platform-tools" "platforms;android-36" "ndk;28.2.13676358"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
 
-      - name: Build native library
+      - name: Build native Vulkan/NPU bundle
         env:
           ABI: ${{ inputs.abi }}
-          NDK_VERSION: 27.0.12077973
+          NDK_VERSION: 28.2.13676358
+          ACCELERATORS: vulkan,npu
         run: tool/build_litert_lm_android.sh
 
-      - name: Upload native library
+      - name: Upload native bundle
         uses: actions/upload-artifact@v4
         with:
-          name: liblitert-lm-c-${{ inputs.abi }}
-          path: android/src/main/jniLibs/${{ inputs.abi }}/liblitert_lm_c.so
+          name: liblitert-lm-android-${{ inputs.abi }}
+          path: android/src/main/jniLibs/${{ inputs.abi }}/*.so
           if-no-files-found: error

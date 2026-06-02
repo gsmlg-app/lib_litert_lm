@@ -59,8 +59,8 @@ jobs:
 
       - name: Install Android SDK packages
         run: |
-          sdkmanager "platform-tools" "platforms;android-36" "ndk;27.0.12077973"
-          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.0.12077973" >> "$GITHUB_ENV"
+          sdkmanager "platform-tools" "platforms;android-36" "ndk;28.2.13676358"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -109,10 +109,11 @@ jobs:
         working-directory: example
         run: flutter test
 
-      - name: Build native Android library
+      - name: Build native Android Vulkan/NPU bundle
         env:
           ABI: arm64-v8a
-          NDK_VERSION: 27.0.12077973
+          NDK_VERSION: 28.2.13676358
+          ACCELERATORS: vulkan,npu
         run: tool/build_litert_lm_android.sh
 
       - name: Check Android build configuration
@@ -136,8 +137,8 @@ jobs:
             --exclude='example/.dart_tool' \
             --exclude='example/build' \
             .
-          cp android/src/main/jniLibs/arm64-v8a/liblitert_lm_c.so \
-            "dist/release/liblitert_lm_c-android-arm64-v8a-${VERSION}.so"
+          tar -czf "dist/release/liblitert_lm-android-arm64-v8a-${VERSION}.tar.gz" \
+            -C android/src/main/jniLibs arm64-v8a
           (
             cd dist/release
             sha256sum * > SHA256SUMS
@@ -147,7 +148,7 @@ jobs:
         env:
           VERSION: ${{ inputs.version }}
         run: |
-          git add pubspec.yaml example/pubspec.yaml android/src/main/jniLibs/arm64-v8a/liblitert_lm_c.so
+          git add pubspec.yaml example/pubspec.yaml android/src/main/jniLibs/arm64-v8a/*.so
           if git diff --cached --quiet; then
             echo "Release files are already current for v${VERSION}."
           else

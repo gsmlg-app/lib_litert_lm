@@ -15,6 +15,7 @@ final class FakeLiteRtLmBackend implements LiteRtLmBackend {
   final Duration tokenDelay;
 
   final loadedModels = <String>[];
+  final loadedConfigs = <LiteRtLmEngineConfig>[];
   final cancelledSessions = <int>{};
   final disposedSessions = <int>{};
   final disposedEngines = <int>{};
@@ -46,6 +47,7 @@ final class FakeLiteRtLmBackend implements LiteRtLmBackend {
     final id = _nextEngineId++;
     _engines.add(id);
     loadedModels.add(config.modelPath);
+    loadedConfigs.add(config);
     return LiteRtLmOk(id);
   }
 

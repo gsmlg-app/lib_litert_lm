@@ -97,4 +97,24 @@ void main() {
 
     expect(result.errorOrNull, isA<LiteRtLmUnsupportedModel>());
   });
+
+  test('engine config carries npu dispatch directory', () async {
+    final backend = FakeLiteRtLmBackend();
+    final client = LiteRtLm.testing(backend);
+
+    final result = await client.loadEngine(
+      const LiteRtLmEngineConfig(
+        modelPath: '/tmp/model.litertlm',
+        backend: 'npu',
+        litertDispatchLibDir: '/data/app/native/lib',
+      ),
+    );
+
+    expect(result.isOk, isTrue);
+    expect(backend.loadedConfigs.single.backend, 'npu');
+    expect(
+      backend.loadedConfigs.single.litertDispatchLibDir,
+      '/data/app/native/lib',
+    );
+  });
 }

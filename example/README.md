@@ -3,7 +3,7 @@
 Run on Android after the maintainer native build has produced:
 
 ```text
-../android/src/main/jniLibs/arm64-v8a/liblitert_lm_c.so
+../android/src/main/jniLibs/arm64-v8a/*.so
 ```
 
 Then:

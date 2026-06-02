@@ -11,6 +11,7 @@ final class LiteRtLmEngineConfig {
     this.backend = 'cpu',
     this.maxNumTokens,
     this.cacheDir,
+    this.litertDispatchLibDir,
     this.prefillChunkSize,
     this.parallelFileSectionLoading = true,
   });
@@ -19,6 +20,7 @@ final class LiteRtLmEngineConfig {
   final String backend;
   final int? maxNumTokens;
   final String? cacheDir;
+  final String? litertDispatchLibDir;
   final int? prefillChunkSize;
   final bool parallelFileSectionLoading;
 }

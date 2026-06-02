@@ -35,6 +35,7 @@ class _LiteRtLmExampleScreenState extends State<LiteRtLmExampleScreen> {
   final _promptController = TextEditingController(
     text: 'Write a concise answer about on-device language models.',
   );
+  final _dispatchDirController = TextEditingController();
 
   LiteRtLm? _client;
   LiteRtLmEngine? _engine;
@@ -42,6 +43,7 @@ class _LiteRtLmExampleScreenState extends State<LiteRtLmExampleScreen> {
   StreamSubscription<LiteRtLmEvent>? _subscription;
 
   String? _modelPath;
+  String _backend = 'cpu';
   String _output = '';
   String _status = 'No model loaded';
   var _loading = false;
@@ -54,6 +56,7 @@ class _LiteRtLmExampleScreenState extends State<LiteRtLmExampleScreen> {
     _engine?.dispose();
     _client?.dispose();
     _promptController.dispose();
+    _dispatchDirController.dispose();
     super.dispose();
   }
 
@@ -102,7 +105,11 @@ class _LiteRtLmExampleScreenState extends State<LiteRtLmExampleScreen> {
     final engineResult = await client.loadEngine(
       LiteRtLmEngineConfig(
         modelPath: modelPath,
-        backend: 'cpu',
+        backend: _backend,
+        litertDispatchLibDir:
+            _backend == 'npu' && _dispatchDirController.text.trim().isNotEmpty
+            ? _dispatchDirController.text.trim()
+            : null,
         maxNumTokens: 4096,
       ),
     );
@@ -243,6 +250,41 @@ class _LiteRtLmExampleScreenState extends State<LiteRtLmExampleScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(
+                  value: 'cpu',
+                  icon: Icon(Icons.developer_board),
+                  label: Text('CPU'),
+                ),
+                ButtonSegment(
+                  value: 'gpu',
+                  icon: Icon(Icons.bolt),
+                  label: Text('GPU'),
+                ),
+                ButtonSegment(
+                  value: 'npu',
+                  icon: Icon(Icons.memory),
+                  label: Text('NPU'),
+                ),
+              ],
+              selected: {_backend},
+              onSelectionChanged: _loading || _generating
+                  ? null
+                  : (values) => setState(() => _backend = values.single),
+            ),
+            if (_backend == 'npu') ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: _dispatchDirController,
+                enabled: !_loading && !_generating,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  labelText: 'NPU dispatch library directory',
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             TextField(
               controller: _promptController,

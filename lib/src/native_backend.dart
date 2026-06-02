@@ -60,6 +60,7 @@ final class NativeLiteRtLmBackend implements LiteRtLmBackend {
       'backend': config.backend,
       'maxNumTokens': config.maxNumTokens,
       'cacheDir': config.cacheDir,
+      'litertDispatchLibDir': config.litertDispatchLibDir,
       'prefillChunkSize': config.prefillChunkSize,
       'parallelFileSectionLoading': config.parallelFileSectionLoading,
     });
@@ -359,6 +360,7 @@ final class _NativeWorkerState {
     final backend = args['backend']! as String;
     final maxNumTokens = args['maxNumTokens'] as int?;
     final cacheDir = args['cacheDir'] as String?;
+    final litertDispatchLibDir = args['litertDispatchLibDir'] as String?;
     final prefillChunkSize = args['prefillChunkSize'] as int?;
     final parallelFileSectionLoading =
         args['parallelFileSectionLoading'] as bool? ?? true;
@@ -409,6 +411,19 @@ final class _NativeWorkerState {
             );
           } finally {
             calloc.free(cacheDirPtr);
+          }
+        }
+        if (litertDispatchLibDir != null && litertDispatchLibDir.isNotEmpty) {
+          final dispatchDirPtr = litertDispatchLibDir.toNativeUtf8(
+            allocator: calloc,
+          );
+          try {
+            bindings.litert_lm_engine_settings_set_litert_dispatch_lib_dir(
+              settings,
+              dispatchDirPtr.cast<ffi.Char>(),
+            );
+          } finally {
+            calloc.free(dispatchDirPtr);
           }
         }
         if (prefillChunkSize != null) {

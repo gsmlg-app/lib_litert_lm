@@ -22,9 +22,10 @@ Pinned native inputs:
 - LiteRT-LM tag: `v0.12.0`
 - LiteRT-LM commit: `ffed38adbc33509480b5340e5173638bc20a68ff`
 - Bazel: `7.6.1`
-- Android NDK: `27.0.12077973`
+- Android NDK: `28.2.13676358`
 - First ABI: `arm64-v8a`
-- Output: `android/src/main/jniLibs/arm64-v8a/liblitert_lm_c.so`
+- Output: `android/src/main/jniLibs/arm64-v8a/`
+- Default accelerator bundle: `vulkan,npu`
 
 The script patches upstream `c/BUILD` with a `cc_binary(linkshared = True)`
 wrapper around `//c:engine`, exports the C API with a dynamic-list file:
@@ -36,11 +37,17 @@ wrapper around `//c:engine`, exports the C API with a dynamic-list file:
 };
 ```
 
-LiteRt is linked statically into `liblitert_lm_c.so`
+The core LiteRT C API is linked statically into `liblitert_lm_c.so`
 (`--dynamic_mode=off`, `linkstatic = True`, and
-`--define=litert_link_capi_so=false`) so the plugin ships one native library
-per ABI. The script verifies exported symbols with `llvm-nm` and rejects ELF
-load segments below 16 KB alignment with `llvm-readobj`.
+`--define=litert_link_capi_so=false`). Vulkan/GPU and NPU support are packaged
+as runtime libraries beside the FFI wrapper. The script copies the pinned
+LiteRT-LM GPU/Vulkan prebuilts, builds the configured LiteRT NPU dispatch
+targets, verifies exported symbols with `llvm-nm`, and rejects every bundled
+ELF below 16 KB load-segment alignment with `llvm-readobj`.
+
+For Qualcomm or MediaTek NPU builds that require vendor runtime libraries,
+maintainers can pass `NPU_VENDOR_LIB_DIRS` to copy extracted SDK `.so` files
+into the same ABI bundle.
 
 More detail is in [docs/native-build.md](docs/native-build.md).
 
@@ -89,6 +96,22 @@ await session.dispose();
 await engine.dispose();
 await client.dispose();
 ```
+
+For NPU, load the model with the bundled dispatch library directory:
+
+```dart
+final engineResult = await client.loadEngine(
+  const LiteRtLmEngineConfig(
+    modelPath: '/local/path/model.litertlm',
+    backend: 'npu',
+    litertDispatchLibDir: '/data/app/.../lib/arm64',
+  ),
+);
+```
+
+On Android this directory is normally the app's `nativeLibraryDir`. The plugin
+manifest also contributes optional GPU runtime declarations for
+`libvndksupport.so` and `libOpenCL.so`.
 
 ## OpenAI-Compatible HTTP Server
 

@@ -8,15 +8,30 @@ readonly LITERT_LM_REPO="${LITERT_LM_REPO:-https://github.com/google-ai-edge/Lit
 readonly LITERT_LM_TAG="${LITERT_LM_TAG:-v0.12.0}"
 readonly LITERT_LM_COMMIT="${LITERT_LM_COMMIT:-ffed38adbc33509480b5340e5173638bc20a68ff}"
 readonly BAZEL_VERSION="${BAZEL_VERSION:-7.6.1}"
-readonly NDK_VERSION="${NDK_VERSION:-27.0.12077973}"
+readonly NDK_VERSION="${NDK_VERSION:-28.2.13676358}"
 readonly LIB_NAME="liblitert_lm_c.so"
+readonly ACCELERATORS="${ACCELERATORS:-vulkan,npu}"
+readonly NPU_TARGETS="${NPU_TARGETS:-@litert//litert/vendors/google_tensor/dispatch:dispatch_api_so @litert//litert/vendors/qualcomm/dispatch:dispatch_api_so @litert//litert/vendors/mediatek/dispatch:dispatch_api_so}"
+readonly NPU_VENDOR_LIB_DIRS="${NPU_VENDOR_LIB_DIRS:-}"
 
 readonly ABI="${ABI:-arm64-v8a}"
 case "$ABI" in
-  arm64-v8a) readonly BAZEL_ANDROID_CONFIG="android_arm64" ;;
-  armeabi-v7a) readonly BAZEL_ANDROID_CONFIG="android_arm" ;;
-  x86) readonly BAZEL_ANDROID_CONFIG="android_x86" ;;
-  x86_64) readonly BAZEL_ANDROID_CONFIG="android_x86_64" ;;
+  arm64-v8a)
+    readonly BAZEL_ANDROID_CONFIG="android_arm64"
+    readonly PREBUILT_ANDROID_DIR="android_arm64"
+    ;;
+  armeabi-v7a)
+    readonly BAZEL_ANDROID_CONFIG="android_arm"
+    readonly PREBUILT_ANDROID_DIR=""
+    ;;
+  x86)
+    readonly BAZEL_ANDROID_CONFIG="android_x86"
+    readonly PREBUILT_ANDROID_DIR=""
+    ;;
+  x86_64)
+    readonly BAZEL_ANDROID_CONFIG="android_x86_64"
+    readonly PREBUILT_ANDROID_DIR="android_x86_64"
+    ;;
   *) echo "Unsupported ABI: $ABI" >&2; exit 2 ;;
 esac
 
@@ -138,6 +153,28 @@ EOF
   fi
 }
 
+fetch_gpu_prebuilts() {
+  local src_dir="$1"
+
+  if ! accelerator_enabled "gpu" && ! accelerator_enabled "vulkan"; then
+    return
+  fi
+
+  if [[ -z "$PREBUILT_ANDROID_DIR" ]]; then
+    echo "GPU/Vulkan runtime prebuilts are not pinned for ABI $ABI." >&2
+    exit 1
+  fi
+
+  if ! git -C "$src_dir" lfs version >/dev/null 2>&1; then
+    echo "git-lfs is required to fetch LiteRT-LM GPU/Vulkan prebuilts." >&2
+    exit 2
+  fi
+
+  git -C "$src_dir" lfs pull \
+    --include="prebuilt/$PREBUILT_ANDROID_DIR/*.so" \
+    --exclude=""
+}
+
 copy_output() {
   local src_dir="$1"
   local src_so="$src_dir/bazel-bin/c/$LIB_NAME"
@@ -152,6 +189,97 @@ copy_output() {
   mkdir -p "$out_dir"
   cp "$src_so" "$out_so"
   echo "$out_so"
+}
+
+accelerator_enabled() {
+  local name="$1"
+  [[ ",$ACCELERATORS," == *",$name,"* ]]
+}
+
+copy_gpu_runtime_libs() {
+  local src_dir="$1"
+  local out_dir="$2"
+
+  if ! accelerator_enabled "gpu" && ! accelerator_enabled "vulkan"; then
+    return
+  fi
+
+  if [[ -z "$PREBUILT_ANDROID_DIR" ]]; then
+    echo "GPU/Vulkan runtime prebuilts are not pinned for ABI $ABI." >&2
+    exit 1
+  fi
+
+  local prebuilt_dir="$src_dir/prebuilt/$PREBUILT_ANDROID_DIR"
+  if [[ ! -d "$prebuilt_dir" ]]; then
+    echo "LiteRT-LM GPU/Vulkan runtime directory not found: $prebuilt_dir" >&2
+    exit 1
+  fi
+
+  local copied=0
+  while IFS= read -r runtime_so; do
+    cp "$runtime_so" "$out_dir/$(basename "$runtime_so")"
+    copied=$((copied + 1))
+  done < <(find "$prebuilt_dir" -maxdepth 1 -type f -name '*.so' | sort)
+
+  if (( copied == 0 )); then
+    echo "No GPU/Vulkan runtime libraries found in $prebuilt_dir" >&2
+    exit 1
+  fi
+}
+
+copy_npu_dispatch_libs() {
+  local src_dir="$1"
+  local out_dir="$2"
+
+  if ! accelerator_enabled "npu"; then
+    return
+  fi
+
+  local vendors_dir="$src_dir/bazel-bin/external/litert/litert/vendors"
+  if [[ ! -d "$vendors_dir" ]]; then
+    echo "NPU dispatch output directory not found: $vendors_dir" >&2
+    exit 1
+  fi
+
+  local dispatch_copied=0
+  while IFS= read -r dispatch_so; do
+    cp "$dispatch_so" "$out_dir/$(basename "$dispatch_so")"
+    dispatch_copied=$((dispatch_copied + 1))
+  done < <(find "$vendors_dir" \
+    \( -path '*/google_tensor/*' -o -path '*/qualcomm/*' -o -path '*/mediatek/*' \) \
+    -type f -name '*.so' | sort)
+
+  if [[ -n "$NPU_VENDOR_LIB_DIRS" ]]; then
+    local vendor_dir
+    local old_ifs="$IFS"
+    IFS=':'
+    for vendor_dir in $NPU_VENDOR_LIB_DIRS; do
+      IFS="$old_ifs"
+      [[ -z "$vendor_dir" ]] && continue
+      if [[ ! -d "$vendor_dir" ]]; then
+        echo "NPU vendor library directory not found: $vendor_dir" >&2
+        exit 1
+      fi
+      while IFS= read -r vendor_so; do
+        cp "$vendor_so" "$out_dir/$(basename "$vendor_so")"
+      done < <(find "$vendor_dir" -type f -name '*.so' | sort)
+      IFS=':'
+    done
+    IFS="$old_ifs"
+  fi
+
+  if (( dispatch_copied == 0 )); then
+    echo "No NPU dispatch libraries were built from targets: $NPU_TARGETS" >&2
+    exit 1
+  fi
+}
+
+copy_runtime_libs() {
+  local src_dir="$1"
+  local out_dir="$OUT_ROOT/$ABI"
+
+  copy_gpu_runtime_libs "$src_dir" "$out_dir"
+  copy_npu_dispatch_libs "$src_dir" "$out_dir"
 }
 
 verify_symbols() {
@@ -188,6 +316,21 @@ verify_page_alignment() {
     | awk '/Type: PT_LOAD/{in_load=1} in_load && /Alignment:/{print $2; in_load=0}')
 }
 
+verify_runtime_bundle() {
+  local out_dir="$OUT_ROOT/$ABI"
+  local checked=0
+
+  while IFS= read -r so; do
+    verify_page_alignment "$so"
+    checked=$((checked + 1))
+  done < <(find "$out_dir" -maxdepth 1 -type f -name '*.so' | sort)
+
+  if (( checked == 0 )); then
+    echo "No shared libraries found in $out_dir" >&2
+    exit 1
+  fi
+}
+
 main() {
   mkdir -p "$BUILD_ROOT"
 
@@ -195,13 +338,22 @@ main() {
   bazel="$(find_bazel)"
   src_dir="$(checkout_source)"
   patch_shared_target "$src_dir"
+  fetch_gpu_prebuilts "$src_dir"
+
+  local targets=("//c:$LIB_NAME")
+  if accelerator_enabled "npu"; then
+    local npu_target
+    for npu_target in $NPU_TARGETS; do
+      targets+=("$npu_target")
+    done
+  fi
 
   (
     cd "$src_dir"
     ANDROID_NDK_HOME="$NDK_HOME" \
     ANDROID_HOME="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-"$HOME/Library/Android/sdk"}}" \
       "$bazel" build \
-        "//c:$LIB_NAME" \
+        "${targets[@]}" \
         "--config=$BAZEL_ANDROID_CONFIG" \
         --config=public_cache \
         --define=litert_link_capi_so=false \
@@ -209,10 +361,11 @@ main() {
   )
 
   out_so="$(copy_output "$src_dir")"
+  copy_runtime_libs "$src_dir"
   verify_symbols "$out_so"
-  verify_page_alignment "$out_so"
+  verify_runtime_bundle
 
-  echo "Built $out_so"
+  echo "Built Android native bundle in $OUT_ROOT/$ABI"
 }
 
 main "$@"
