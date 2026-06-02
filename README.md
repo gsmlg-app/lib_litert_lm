@@ -49,7 +49,7 @@ For Qualcomm or MediaTek NPU builds that require vendor runtime libraries,
 maintainers can pass `NPU_VENDOR_LIB_DIRS` to copy extracted SDK `.so` files
 into the same ABI bundle.
 
-More detail is in [docs/native-build.md](docs/native-build.md).
+More detail is in [doc/native-build.md](doc/native-build.md).
 
 ## Dart API
 
