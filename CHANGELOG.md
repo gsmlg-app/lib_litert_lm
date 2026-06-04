@@ -1,7 +1,8 @@
 ## 0.0.3
 
-- Switched pub.dev release publishing to GitHub Actions OIDC trusted
-  publishing with `id-token: write`.
+- Split GitHub release creation from standalone pub.dev publish workflows.
+- Switched regular pub.dev publishing to GitHub Actions OIDC trusted publishing
+  with `id-token: write`.
 
 ## 0.0.2
 

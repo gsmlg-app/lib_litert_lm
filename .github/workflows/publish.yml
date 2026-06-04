@@ -1,0 +1,141 @@
+name: Publish to pub.dev
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version or tag to publish (e.g. 0.0.3 or v0.0.3)
+        required: true
+        type: string
+      git_ref:
+        description: Git ref to publish from
+        required: true
+        default: main
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.version || github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: '3.44.0'
+  PACKAGE: lib_litert_lm
+  PUBLISH_TAG: ${{ inputs.version || github.ref_name }}
+  PUBLISH_REF: ${{ inputs.git_ref || github.ref }}
+
+jobs:
+  publish:
+    name: Publish lib_litert_lm
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PUBLISH_REF }}
+
+      - name: Setup Dart OIDC credentials
+        uses: dart-lang/setup-dart@v1
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            .dart_tool
+          key: ${{ runner.os }}-pub-${{ hashFiles('pubspec.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
+      - name: Resolve package version
+        id: package
+        run: |
+          set -euo pipefail
+          version="$(awk '/^version:/ { print $2; exit }' pubspec.yaml)"
+          expected="${PUBLISH_TAG#v}"
+          if [[ "$version" != "$expected" ]]; then
+            echo "::error::pubspec.yaml version ${version} does not match ${PUBLISH_TAG}."
+            exit 1
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Check package status
+        id: published
+        env:
+          VERSION: ${{ steps.package.outputs.version }}
+        run: |
+          set -euo pipefail
+          status="$(
+            curl -sS -o "$RUNNER_TEMP/package.json" \
+              -w '%{http_code}' \
+              "https://pub.dev/api/packages/${PACKAGE}"
+          )"
+
+          if [[ "$status" == "404" ]]; then
+            echo "::error::${PACKAGE} is not published yet. Use first-publish.yml for the initial publication."
+            exit 1
+          fi
+
+          if [[ "$status" != "200" ]]; then
+            echo "::error::pub.dev returned HTTP ${status} for ${PACKAGE}"
+            cat "$RUNNER_TEMP/package.json"
+            exit 1
+          fi
+
+          published="$(
+            VERSION="$VERSION" python3 -c 'import json, os, sys; print("yes" if any(item["version"] == os.environ["VERSION"] for item in json.load(open(sys.argv[1])).get("versions", [])) else "no")' "$RUNNER_TEMP/package.json"
+          )"
+          if [[ "$published" == "yes" ]]; then
+            echo "${PACKAGE} ${VERSION} is already published; skipping."
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "should_publish=true" >> "$GITHUB_OUTPUT"
+
+      - name: Install dependencies
+        if: ${{ steps.published.outputs.should_publish == 'true' }}
+        run: flutter pub get
+
+      - name: Validate package
+        if: ${{ steps.published.outputs.should_publish == 'true' }}
+        run: flutter pub publish --dry-run --ignore-warnings
+
+      - name: Publish package
+        if: ${{ steps.published.outputs.should_publish == 'true' }}
+        run: flutter pub publish --force
+
+      - name: Wait for pub.dev indexing
+        if: ${{ steps.published.outputs.should_publish == 'true' }}
+        env:
+          VERSION: ${{ steps.package.outputs.version }}
+        run: |
+          set -euo pipefail
+          echo "Waiting for ${PACKAGE} ${VERSION} on pub.dev"
+          for attempt in {1..40}; do
+            latest="$(
+              curl -fsSL "https://pub.dev/api/packages/${PACKAGE}" |
+                python3 -c 'import json, sys; print(json.load(sys.stdin)["latest"]["version"])'
+            )"
+            if [[ "$latest" == "$VERSION" ]]; then
+              echo "${PACKAGE} ${VERSION} is indexed"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::${PACKAGE} was not indexed as ${VERSION} within the timeout."
+          exit 1
