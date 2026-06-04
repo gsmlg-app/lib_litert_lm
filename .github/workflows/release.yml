@@ -14,6 +14,7 @@ on:
         type: string
 
 permissions:
+  actions: write
   contents: write
 
 concurrency:
@@ -37,15 +38,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-      - name: Check publish trigger token
-        env:
-          PUBLISH_WORKFLOW_TOKEN: ${{ secrets.PUBLISH_WORKFLOW_TOKEN }}
-        run: |
-          if [[ -z "$PUBLISH_WORKFLOW_TOKEN" ]]; then
-            echo "::error::Set the PUBLISH_WORKFLOW_TOKEN secret to a token that can create releases and trigger workflows."
-            exit 1
-          fi
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -168,7 +160,7 @@ jobs:
 
       - name: Create GitHub release and tag
         env:
-          GH_TOKEN: ${{ secrets.PUBLISH_WORKFLOW_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
         run: |
           gh release create "v${VERSION}" dist/release/* \
@@ -178,7 +170,7 @@ jobs:
 
       - name: Dispatch pub.dev publish
         env:
-          GH_TOKEN: ${{ secrets.PUBLISH_WORKFLOW_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
         run: |
           gh workflow run publish.yml \
