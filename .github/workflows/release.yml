@@ -1,6 +1,9 @@
 name: Release
 
 on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
   workflow_dispatch:
     inputs:
       version:
@@ -13,13 +16,14 @@ on:
         default: main
         type: string
       publish_to_pub:
-        description: Publish to pub.dev after creating the GitHub release
+        description: Publish to pub.dev. Requires a pushed version tag for OIDC.
         required: true
         default: false
         type: boolean
 
 permissions:
   contents: write
+  id-token: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -35,13 +39,52 @@ jobs:
       - name: Checkout release ref
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.git_ref }}
+          ref: ${{ inputs.git_ref || github.ref }}
           fetch-depth: 0
 
       - name: Setup Git identity
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Resolve release settings
+        id: release
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_GIT_REF: ${{ inputs.git_ref }}
+          INPUT_PUBLISH_TO_PUB: ${{ inputs.publish_to_pub }}
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+            GIT_REF="${GITHUB_REF_NAME}"
+            PUBLISH_TO_PUB="true"
+            UPDATE_VERSIONS="false"
+            TAGGED="true"
+          else
+            VERSION="${INPUT_VERSION}"
+            GIT_REF="${INPUT_GIT_REF:-main}"
+            PUBLISH_TO_PUB="${INPUT_PUBLISH_TO_PUB:-false}"
+            UPDATE_VERSIONS="true"
+            TAGGED="false"
+          fi
+
+          if [[ -z "${VERSION}" ]]; then
+            echo "::error::Release version is required."
+            exit 1
+          fi
+
+          if [[ "${PUBLISH_TO_PUB}" == "true" && "${TAGGED}" != "true" ]]; then
+            echo "::error::pub.dev OIDC publishing requires a pushed version tag such as v${VERSION}."
+            exit 1
+          fi
+
+          {
+            echo "version=${VERSION}"
+            echo "git_ref=${GIT_REF}"
+            echo "publish_to_pub=${PUBLISH_TO_PUB}"
+            echo "update_versions=${UPDATE_VERSIONS}"
+            echo "tagged=${TAGGED}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -51,6 +94,9 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+
+      - name: Setup Dart for pub.dev OIDC
+        uses: dart-lang/setup-dart@v1
 
       - name: Install native build dependencies
         run: |
@@ -81,8 +127,9 @@ jobs:
             ${{ runner.os }}-pub-
 
       - name: Update package versions
+        if: ${{ steps.release.outputs.update_versions == 'true' }}
         env:
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ steps.release.outputs.version }}
         run: |
           perl -0pi -e 's/^version: .+$/version: $ENV{VERSION}/m' pubspec.yaml
           if [[ "$VERSION" == *+* ]]; then
@@ -92,6 +139,16 @@ jobs:
           fi
           export EXAMPLE_VERSION
           perl -0pi -e 's/^version: .+$/version: $ENV{EXAMPLE_VERSION}/m' example/pubspec.yaml
+
+      - name: Validate tagged package version
+        if: ${{ steps.release.outputs.tagged == 'true' }}
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          if ! grep -qx "version: ${VERSION}" pubspec.yaml; then
+            echo "::error::pubspec.yaml version must match pushed tag v${VERSION}."
+            exit 1
+          fi
 
       - name: Install dependencies
         run: flutter pub get
@@ -125,11 +182,11 @@ jobs:
         run: flutter build apk --debug --config-only
 
       - name: Validate pub package
-        run: flutter pub publish --dry-run --ignore-warnings
+        run: dart pub publish --dry-run --ignore-warnings
 
       - name: Create release artifacts
         env:
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ steps.release.outputs.version }}
         run: |
           mkdir -p dist/release
           tar -czf "dist/release/lib_litert_lm-source-${VERSION}.tar.gz" \
@@ -149,8 +206,10 @@ jobs:
           )
 
       - name: Commit release version and native library
+        if: ${{ steps.release.outputs.update_versions == 'true' }}
         env:
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ steps.release.outputs.version }}
+          GIT_REF: ${{ steps.release.outputs.git_ref }}
         run: |
           git add pubspec.yaml example/pubspec.yaml android/src/main/jniLibs/arm64-v8a/*.so
           if git diff --cached --quiet; then
@@ -158,30 +217,25 @@ jobs:
           else
             git commit -m "chore(release): v${VERSION}"
           fi
-          git push origin "HEAD:${{ inputs.git_ref }}"
+          git push origin "HEAD:${GIT_REF}"
 
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ steps.release.outputs.version }}
+          TAGGED: ${{ steps.release.outputs.tagged }}
         run: |
-          gh release create "v${VERSION}" dist/release/* \
-            --target "$(git rev-parse HEAD)" \
-            --generate-notes \
-            --title "v${VERSION}"
-
-      - name: Configure pub.dev credentials
-        if: ${{ inputs.publish_to_pub }}
-        env:
-          PUB_CREDENTIALS: ${{ secrets.PUB_CREDENTIALS }}
-        run: |
-          if [[ -z "$PUB_CREDENTIALS" ]]; then
-            echo "::error::Set the PUB_CREDENTIALS secret before publishing to pub.dev."
-            exit 1
+          if [[ "${TAGGED}" == "true" ]]; then
+            gh release create "v${VERSION}" dist/release/* \
+              --generate-notes \
+              --title "v${VERSION}"
+          else
+            gh release create "v${VERSION}" dist/release/* \
+              --target "$(git rev-parse HEAD)" \
+              --generate-notes \
+              --title "v${VERSION}"
           fi
-          mkdir -p "$HOME/.config/dart"
-          printf '%s' "$PUB_CREDENTIALS" > "$HOME/.config/dart/pub-credentials.json"
 
       - name: Publish to pub.dev
-        if: ${{ inputs.publish_to_pub }}
-        run: flutter pub publish --force
+        if: ${{ steps.release.outputs.publish_to_pub == 'true' }}
+        run: dart pub publish --force

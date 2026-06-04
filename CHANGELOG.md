@@ -1,3 +1,8 @@
+## 0.0.3
+
+- Switched pub.dev release publishing to GitHub Actions OIDC trusted
+  publishing with `id-token: write`.
+
 ## 0.0.2
 
 - Documented required Android host app manifest configuration for LiteRT-LM

@@ -1,6 +1,6 @@
 name: lib_litert_lm
 description: Android-only Flutter FFI bindings for the LiteRT-LM C API.
-version: 0.0.2
+version: 0.0.3
 homepage: https://github.com/gsmlg-app/lib_litert_lm
 repository: https://github.com/gsmlg-app/lib_litert_lm
 issue_tracker: https://github.com/gsmlg-app/lib_litert_lm/issues
