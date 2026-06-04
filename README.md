@@ -10,6 +10,7 @@ This package provides a high-performance, responsive Dart and Flutter interface 
 
 - [Project Structure](#project-structure)
 - [Prerequisites \& Setup](#prerequisites--setup)
+- [Android App Configuration](#android-app-configuration)
 - [Running Tests](#running-tests)
 - [Running the Example App](#running-the-example-app)
 - [Native Build](#native-build)
@@ -58,6 +59,29 @@ To fetch dependencies and initialize the workspace, run:
 ```bash
 flutter pub get
 ```
+
+---
+
+## Android App Configuration
+
+Host apps should add the LiteRT-LM runtime declarations to
+`android/app/src/main/AndroidManifest.xml`. Merge these into the existing
+`<application>` element rather than replacing the generated Flutter manifest
+contents:
+
+```xml
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application
+        android:largeHeap="true">
+        <uses-native-library android:name="libvndksupport.so" android:required="false" />
+        <uses-native-library android:name="libOpenCL.so" android:required="false" />
+    </application>
+</manifest>
+```
+
+`android:largeHeap="true"` gives large local models more room to load, while
+the optional native-library declarations allow Android to expose vendor runtime
+libraries such as VNDK support and OpenCL when they are present on the device.
 
 ---
 

@@ -1,3 +1,8 @@
+## 0.0.2
+
+- Documented required Android host app manifest configuration for LiteRT-LM
+  runtime libraries and large local model loading.
+
 ## 0.0.1
 
 - Added Android-only LiteRT-LM FFI plugin package.
