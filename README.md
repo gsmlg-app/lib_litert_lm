@@ -1,5 +1,10 @@
 # lib_litert_lm
 
+[![pub package](https://img.shields.io/pub/v/lib_litert_lm.svg)](https://pub.dev/packages/lib_litert_lm)
+[![CI](https://github.com/gsmlg-app/lib_litert_lm/actions/workflows/ci.yml/badge.svg)](https://github.com/gsmlg-app/lib_litert_lm/actions/workflows/ci.yml)
+[![Tests](https://github.com/gsmlg-app/lib_litert_lm/actions/workflows/test.yml/badge.svg)](https://github.com/gsmlg-app/lib_litert_lm/actions/workflows/test.yml)
+[![End-to-End](https://github.com/gsmlg-app/lib_litert_lm/actions/workflows/e2e.yml/badge.svg)](https://github.com/gsmlg-app/lib_litert_lm/actions/workflows/e2e.yml)
+
 Android-only Flutter FFI bindings for the LiteRT-LM C API from [`google-ai-edge/LiteRT-LM`](https://github.com/google-ai-edge/LiteRT-LM).
 
 This package provides a high-performance, responsive Dart and Flutter interface to run Large Language Models on Android devices using the official Google LiteRT-LM native runtime.
