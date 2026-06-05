@@ -143,6 +143,73 @@ final class NativeLiteRtLmBackend implements LiteRtLmBackend {
   }
 
   @override
+  Future<LiteRtLmResult<String>> generateContent(
+    int sessionId,
+    List<LiteRtLmContent> contents,
+  ) {
+    return _requestResult<String>('generateContent', <String, Object?>{
+      'sessionId': sessionId,
+      'contents': contents,
+    });
+  }
+
+  @override
+  Stream<LiteRtLmEvent> generateContentStream(
+    int sessionId,
+    List<LiteRtLmContent> contents,
+  ) {
+    if (_closed) {
+      return Stream<LiteRtLmEvent>.value(
+        const LiteRtLmFailed(
+          LiteRtLmDisposed('LiteRT-LM backend has been closed'),
+        ),
+      );
+    }
+
+    final streamId = _nextStreamId++;
+    final events = ReceivePort();
+    StreamSubscription<Object?>? subscription;
+    var finished = false;
+
+    late final StreamController<LiteRtLmEvent> controller;
+    controller = StreamController<LiteRtLmEvent>(
+      onListen: () {
+        subscription = events.listen((raw) {
+          final event = _decodeStreamEvent(raw);
+          switch (event) {
+            case _DecodedStreamEvent(:final value, :final closes):
+              controller.add(value);
+              if (closes) {
+                finished = true;
+                unawaited(controller.close());
+              }
+          }
+        });
+        _commands.send(<String, Object?>{
+          'command': 'generateContentStream',
+          'streamId': streamId,
+          'sessionId': sessionId,
+          'contents': contents,
+          'events': events.sendPort,
+        });
+      },
+      onCancel: () async {
+        await subscription?.cancel();
+        events.close();
+        if (!finished) {
+          _commands.send(<String, Object?>{
+            'command': 'cancelStream',
+            'streamId': streamId,
+            'sessionId': sessionId,
+          });
+        }
+      },
+    );
+
+    return controller.stream;
+  }
+
+  @override
   Future<void> cancelSession(int sessionId) {
     return _requestVoid('cancelSession', <String, Object?>{
       'sessionId': sessionId,
@@ -329,6 +396,10 @@ final class _NativeWorkerState {
         _reply(replyTo, _generate(raw));
       case 'generateStream':
         _generateStream(raw);
+      case 'generateContent':
+        _reply(replyTo, _generateContent(raw));
+      case 'generateContentStream':
+        _generateContentStream(raw);
       case 'cancelStream':
         _cancelStream(raw);
         _replyOk(replyTo, null);
@@ -635,6 +706,132 @@ final class _NativeWorkerState {
     }
   }
 
+  LiteRtLmResult<String> _generateContent(Map<Object?, Object?> args) {
+    final sessionId = args['sessionId']! as int;
+    final session = sessions[sessionId];
+    if (session == null || session.disposed) {
+      return const LiteRtLmErr(
+        LiteRtLmDisposed('LiteRT-LM session has been disposed'),
+      );
+    }
+
+    final contents = args['contents']! as List<LiteRtLmContent>;
+    final responses = _withTextInputList(contents, (inputs, count) {
+      return bindings.litert_lm_session_generate_content(
+        session.pointer,
+        inputs,
+        count,
+      );
+    });
+
+    if (responses == ffi.nullptr) {
+      return const LiteRtLmErr(
+        LiteRtLmGenerationFailure('Native generation returned no response'),
+      );
+    }
+
+    try {
+      final count = bindings.litert_lm_responses_get_num_candidates(responses);
+      if (count <= 0) {
+        return const LiteRtLmOk('');
+      }
+      final textPtr = bindings.litert_lm_responses_get_response_text_at(
+        responses,
+        0,
+      );
+      if (textPtr == ffi.nullptr) {
+        return const LiteRtLmErr(
+          LiteRtLmGenerationFailure('Native response text was null'),
+        );
+      }
+      return LiteRtLmOk(textPtr.cast<Utf8>().toDartString());
+    } catch (error) {
+      return LiteRtLmErr(_classifyNativeFailure('$error', generation: true));
+    } finally {
+      bindings.litert_lm_responses_delete(responses);
+    }
+  }
+
+  void _generateContentStream(Map<Object?, Object?> args) {
+    final streamId = args['streamId']! as int;
+    final sessionId = args['sessionId']! as int;
+    final events = args['events']! as SendPort;
+    final session = sessions[sessionId];
+    if (session == null || session.disposed) {
+      events.send(<String, Object?>{
+        'type': 'error',
+        'error': liteRtLmFailureToMap(
+          const LiteRtLmDisposed('LiteRT-LM session has been disposed'),
+        ),
+      });
+      return;
+    }
+
+    final buffer = StringBuffer();
+    late final ffi.NativeCallable<c.LiteRtLmStreamCallbackFunction> callback;
+    callback = ffi.NativeCallable<c.LiteRtLmStreamCallbackFunction>.listener((
+      ffi.Pointer<ffi.Void> callbackData,
+      ffi.Pointer<ffi.Char> chunk,
+      bool isFinal,
+      ffi.Pointer<ffi.Char> errorMsg,
+    ) {
+      final active = streams[streamId];
+      if (active == null) {
+        return;
+      }
+      final errorText = errorMsg == ffi.nullptr
+          ? null
+          : errorMsg.cast<Utf8>().toDartString();
+      if (errorText != null && errorText.isNotEmpty) {
+        active.events.send(<String, Object?>{
+          'type': 'error',
+          'error': liteRtLmFailureToMap(
+            _classifyNativeFailure(errorText, generation: true),
+          ),
+        });
+        scheduleMicrotask(() => _closeStream(streamId));
+        return;
+      }
+
+      final text = chunk == ffi.nullptr
+          ? ''
+          : chunk.cast<Utf8>().toDartString();
+      if (text.isNotEmpty) {
+        buffer.write(text);
+        active.events.send(<String, Object?>{'type': 'token', 'text': text});
+      }
+      if (isFinal) {
+        active.events.send(<String, Object?>{
+          'type': 'complete',
+          'text': buffer.toString(),
+        });
+        scheduleMicrotask(() => _closeStream(streamId));
+      }
+    });
+
+    streams[streamId] = _ActiveStream(sessionId, events, callback);
+    final contents = args['contents']! as List<LiteRtLmContent>;
+    final status = _withTextInputList(contents, (inputs, count) {
+      return bindings.litert_lm_session_generate_content_stream(
+        session.pointer,
+        inputs,
+        count,
+        callback.nativeFunction,
+        ffi.nullptr.cast<ffi.Void>(),
+      );
+    });
+
+    if (status != 0) {
+      events.send(<String, Object?>{
+        'type': 'error',
+        'error': liteRtLmFailureToMap(
+          const LiteRtLmGenerationFailure('Failed to start native stream'),
+        ),
+      });
+      _closeStream(streamId);
+    }
+  }
+
   void _cancelStream(Map<Object?, Object?> args) {
     final streamId = args['streamId']! as int;
     final sessionId = args['sessionId']! as int;
@@ -701,6 +898,69 @@ final class _NativeWorkerState {
     } finally {
       calloc.free(input);
       calloc.free(textPtr);
+    }
+  }
+
+  T _withTextInputList<T>(
+    List<LiteRtLmContent> contents,
+    T Function(ffi.Pointer<c.LiteRtLmInputData> inputs, int count) run,
+  ) {
+    final count = contents.length;
+    final inputs = calloc<c.LiteRtLmInputData>(count);
+    final allocatedPointers = <ffi.Pointer<ffi.Void>>[];
+
+    try {
+      for (var i = 0; i < count; i++) {
+        final content = contents[i];
+        final input = (inputs + i).ref;
+
+        switch (content) {
+          case LiteRtLmTextContent(:final text):
+            final bytes = utf8.encode(text);
+            final textPtr = text.toNativeUtf8(allocator: calloc);
+            allocatedPointers.add(textPtr.cast<ffi.Void>());
+            input
+              ..typeAsInt = c.LiteRtLmInputDataType.kLiteRtLmInputDataTypeText.value
+              ..data = textPtr.cast<ffi.Void>()
+              ..size = bytes.length;
+
+          case LiteRtLmImageContent(:final bytes):
+            final ptr = calloc<ffi.Uint8>(bytes.length);
+            allocatedPointers.add(ptr.cast<ffi.Void>());
+            ptr.asTypedList(bytes.length).setAll(0, bytes);
+            input
+              ..typeAsInt = c.LiteRtLmInputDataType.kLiteRtLmInputDataTypeImage.value
+              ..data = ptr.cast<ffi.Void>()
+              ..size = bytes.length;
+
+          case LiteRtLmImageEndContent():
+            input
+              ..typeAsInt = c.LiteRtLmInputDataType.kLiteRtLmInputDataTypeImageEnd.value
+              ..data = ffi.nullptr
+              ..size = 0;
+
+          case LiteRtLmAudioContent(:final bytes):
+            final ptr = calloc<ffi.Uint8>(bytes.length);
+            allocatedPointers.add(ptr.cast<ffi.Void>());
+            ptr.asTypedList(bytes.length).setAll(0, bytes);
+            input
+              ..typeAsInt = c.LiteRtLmInputDataType.kLiteRtLmInputDataTypeAudio.value
+              ..data = ptr.cast<ffi.Void>()
+              ..size = bytes.length;
+
+          case LiteRtLmAudioEndContent():
+            input
+              ..typeAsInt = c.LiteRtLmInputDataType.kLiteRtLmInputDataTypeAudioEnd.value
+              ..data = ffi.nullptr
+              ..size = 0;
+        }
+      }
+      return run(inputs, count);
+    } finally {
+      calloc.free(inputs);
+      for (final ptr in allocatedPointers) {
+        calloc.free(ptr);
+      }
     }
   }
 }

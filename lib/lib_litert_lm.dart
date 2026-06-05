@@ -21,6 +21,12 @@ export 'src/types.dart'
         LiteRtLmSession,
         LiteRtLmToken,
         LiteRtLmUnsupportedModel,
-        defaultLiteRtLmGenerationParams;
+        defaultLiteRtLmGenerationParams,
+        LiteRtLmContent,
+        LiteRtLmTextContent,
+        LiteRtLmImageContent,
+        LiteRtLmImageEndContent,
+        LiteRtLmAudioContent,
+        LiteRtLmAudioEndContent;
 export 'src/openai_server.dart'
     show LiteRtLmOpenAiServer, LiteRtLmOpenAiServerConfig;
