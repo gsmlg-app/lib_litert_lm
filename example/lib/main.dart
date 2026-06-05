@@ -48,6 +48,7 @@ class _LiteRtLmExampleScreenState extends State<LiteRtLmExampleScreen> {
   String _status = 'No model loaded';
   var _loading = false;
   var _generating = false;
+  var _attachMultimodal = false;
 
   @override
   void dispose() {
@@ -159,9 +160,17 @@ class _LiteRtLmExampleScreenState extends State<LiteRtLmExampleScreen> {
       _status = 'Generating';
     });
 
-    _subscription = session.generateStream(_promptController.text).listen((
-      event,
-    ) {
+    final stream = _attachMultimodal
+        ? session.generateContentStream([
+            LiteRtLmContent.text(_promptController.text),
+            const LiteRtLmContent.image(<int>[1, 2, 3]),
+            const LiteRtLmContent.imageEnd(),
+            const LiteRtLmContent.audio(<int>[4, 5]),
+            const LiteRtLmContent.audioEnd(),
+          ])
+        : session.generateStream(_promptController.text);
+
+    _subscription = stream.listen((event) {
       switch (event) {
         case LiteRtLmToken(:final text):
           setState(() => _output += text);
@@ -297,6 +306,14 @@ class _LiteRtLmExampleScreenState extends State<LiteRtLmExampleScreen> {
                 border: OutlineInputBorder(),
                 labelText: 'Prompt',
               ),
+            ),
+            SwitchListTile(
+              key: const ValueKey('multimodalToggle'),
+              title: const Text('Attach Multimodal Attachments (Mock)'),
+              value: _attachMultimodal,
+              onChanged: _generating || _loading
+                  ? null
+                  : (value) => setState(() => _attachMultimodal = value),
             ),
             const SizedBox(height: 12),
             Row(
