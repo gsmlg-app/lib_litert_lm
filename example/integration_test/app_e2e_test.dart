@@ -30,11 +30,17 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('npuDispatchDirField')), findsNothing);
 
+    // Wait for system keyboard dismissal and layout resize to settle
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+
     await tester.tap(find.widgetWithText(FilledButton, 'Load'));
     await tester.pumpAndSettle();
     expect(find.text('Pick a .litertlm file first'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Generate'));
+    final generateButton = find.widgetWithText(FilledButton, 'Generate');
+    await tester.ensureVisible(generateButton);
+    await tester.tap(generateButton);
     await tester.pumpAndSettle();
     expect(find.text('Load a model first'), findsOneWidget);
   });
