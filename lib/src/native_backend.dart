@@ -920,7 +920,8 @@ final class _NativeWorkerState {
             final textPtr = text.toNativeUtf8(allocator: calloc);
             allocatedPointers.add(textPtr.cast<ffi.Void>());
             input
-              ..typeAsInt = c.LiteRtLmInputDataType.kLiteRtLmInputDataTypeText.value
+              ..typeAsInt =
+                  c.LiteRtLmInputDataType.kLiteRtLmInputDataTypeText.value
               ..data = textPtr.cast<ffi.Void>()
               ..size = bytes.length;
 
@@ -929,13 +930,15 @@ final class _NativeWorkerState {
             allocatedPointers.add(ptr.cast<ffi.Void>());
             ptr.asTypedList(bytes.length).setAll(0, bytes);
             input
-              ..typeAsInt = c.LiteRtLmInputDataType.kLiteRtLmInputDataTypeImage.value
+              ..typeAsInt =
+                  c.LiteRtLmInputDataType.kLiteRtLmInputDataTypeImage.value
               ..data = ptr.cast<ffi.Void>()
               ..size = bytes.length;
 
           case LiteRtLmImageEndContent():
             input
-              ..typeAsInt = c.LiteRtLmInputDataType.kLiteRtLmInputDataTypeImageEnd.value
+              ..typeAsInt =
+                  c.LiteRtLmInputDataType.kLiteRtLmInputDataTypeImageEnd.value
               ..data = ffi.nullptr
               ..size = 0;
 
@@ -944,13 +947,15 @@ final class _NativeWorkerState {
             allocatedPointers.add(ptr.cast<ffi.Void>());
             ptr.asTypedList(bytes.length).setAll(0, bytes);
             input
-              ..typeAsInt = c.LiteRtLmInputDataType.kLiteRtLmInputDataTypeAudio.value
+              ..typeAsInt =
+                  c.LiteRtLmInputDataType.kLiteRtLmInputDataTypeAudio.value
               ..data = ptr.cast<ffi.Void>()
               ..size = bytes.length;
 
           case LiteRtLmAudioEndContent():
             input
-              ..typeAsInt = c.LiteRtLmInputDataType.kLiteRtLmInputDataTypeAudioEnd.value
+              ..typeAsInt =
+                  c.LiteRtLmInputDataType.kLiteRtLmInputDataTypeAudioEnd.value
               ..data = ffi.nullptr
               ..size = 0;
         }

@@ -319,9 +319,7 @@ final class LiteRtLmSession {
     return _backend.generateContent(_id, contents);
   }
 
-  Stream<LiteRtLmEvent> generateContentStream(
-    List<LiteRtLmContent> contents,
-  ) {
+  Stream<LiteRtLmEvent> generateContentStream(List<LiteRtLmContent> contents) {
     if (_disposed) {
       return Stream<LiteRtLmEvent>.value(
         const LiteRtLmFailed(

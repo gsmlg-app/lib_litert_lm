@@ -118,7 +118,6 @@ final class FakeLiteRtLmBackend implements LiteRtLmBackend {
     return controller.stream;
   }
 
-
   @override
   Future<LiteRtLmResult<String>> generateContent(
     int sessionId,
