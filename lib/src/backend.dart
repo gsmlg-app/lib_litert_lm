@@ -19,6 +19,16 @@ abstract interface class LiteRtLmBackend {
 
   Stream<LiteRtLmEvent> generateStream(int sessionId, String prompt);
 
+  Future<LiteRtLmResult<String>> generateContent(
+    int sessionId,
+    List<LiteRtLmContent> contents,
+  );
+
+  Stream<LiteRtLmEvent> generateContentStream(
+    int sessionId,
+    List<LiteRtLmContent> contents,
+  );
+
   Future<void> cancelSession(int sessionId);
 
   Future<void> disposeSession(int sessionId);

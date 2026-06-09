@@ -34,6 +34,14 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 500));
     await tester.pumpAndSettle();
 
+    final toggleFinder = find.byKey(const ValueKey('multimodalToggle'));
+    expect(toggleFinder, findsOneWidget);
+    expect(tester.widget<SwitchListTile>(toggleFinder).value, isFalse);
+
+    await tester.tap(toggleFinder);
+    await tester.pumpAndSettle();
+    expect(tester.widget<SwitchListTile>(toggleFinder).value, isTrue);
+
     await tester.tap(find.widgetWithText(FilledButton, 'Load'));
     await tester.pumpAndSettle();
     expect(find.text('Pick a .litertlm file first'), findsOneWidget);

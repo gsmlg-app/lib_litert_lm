@@ -117,4 +117,53 @@ void main() {
       '/data/app/native/lib',
     );
   });
+
+  test(
+    'generateContent and generateContentStream support multimodal inputs',
+    () async {
+      final backend = FakeLiteRtLmBackend(
+        generateText: 'multimodal response',
+        streamTokens: const <String>['multi', 'modal'],
+      );
+      final client = LiteRtLm.testing(backend);
+      final engine = (await client.loadEngine(
+        const LiteRtLmEngineConfig(modelPath: '/tmp/model.litertlm'),
+      )).valueOrNull!;
+      final session = (await engine.createSession()).valueOrNull!;
+
+      final contents = <LiteRtLmContent>[
+        const LiteRtLmContent.text('Here is an image:'),
+        const LiteRtLmContent.image(<int>[1, 2, 3]),
+        const LiteRtLmContent.imageEnd(),
+        const LiteRtLmContent.audio(<int>[4, 5]),
+        const LiteRtLmContent.audioEnd(),
+        const LiteRtLmContent.text('Describe them.'),
+      ];
+
+      // Verify generateContent
+      final generateResult = await session.generateContent(contents);
+      expect(generateResult.valueOrNull, 'multimodal response');
+
+      // Verify generateContentStream
+      final streamEvents = await session
+          .generateContentStream(contents)
+          .toList();
+      expect(
+        streamEvents.whereType<LiteRtLmToken>().map((e) => e.text),
+        const <String>['multi', 'modal'],
+      );
+      expect(
+        streamEvents.whereType<LiteRtLmCompleted>().single.text,
+        'multimodal',
+      );
+
+      // Verify engine-level generateContent helper works
+      final engineResult = await engine.generateContent(contents);
+      expect(engineResult.valueOrNull, 'multimodal response');
+
+      await session.dispose();
+      await engine.dispose();
+      await client.dispose();
+    },
+  );
 }

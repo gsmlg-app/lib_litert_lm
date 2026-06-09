@@ -119,6 +119,27 @@ final class FakeLiteRtLmBackend implements LiteRtLmBackend {
   }
 
   @override
+  Future<LiteRtLmResult<String>> generateContent(
+    int sessionId,
+    List<LiteRtLmContent> contents,
+  ) async {
+    if (!_sessions.containsKey(sessionId)) {
+      return const LiteRtLmErr(
+        LiteRtLmDisposed('Fake session has been disposed'),
+      );
+    }
+    return LiteRtLmOk(generateText);
+  }
+
+  @override
+  Stream<LiteRtLmEvent> generateContentStream(
+    int sessionId,
+    List<LiteRtLmContent> contents,
+  ) {
+    return generateStream(sessionId, '');
+  }
+
+  @override
   Future<void> cancelSession(int sessionId) async {
     cancelledSessions.add(sessionId);
   }

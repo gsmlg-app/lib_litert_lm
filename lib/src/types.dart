@@ -255,6 +255,23 @@ final class LiteRtLmEngine {
     };
   }
 
+  Future<LiteRtLmResult<String>> generateContent(
+    List<LiteRtLmContent> contents, {
+    LiteRtLmGenerationParams params = defaultLiteRtLmGenerationParams,
+  }) async {
+    final sessionResult = await createSession(params: params);
+    return switch (sessionResult) {
+      LiteRtLmErr<LiteRtLmSession>(:final error) => LiteRtLmErr(error),
+      LiteRtLmOk<LiteRtLmSession>(:final value) => () async {
+        try {
+          return await value.generateContent(contents);
+        } finally {
+          await value.dispose();
+        }
+      }(),
+    };
+  }
+
   Future<void> dispose() async {
     if (_disposed) {
       return;
@@ -291,6 +308,28 @@ final class LiteRtLmSession {
     return _backend.generateStream(_id, prompt);
   }
 
+  Future<LiteRtLmResult<String>> generateContent(
+    List<LiteRtLmContent> contents,
+  ) async {
+    if (_disposed) {
+      return const LiteRtLmErr(
+        LiteRtLmDisposed('LiteRT-LM session has been disposed'),
+      );
+    }
+    return _backend.generateContent(_id, contents);
+  }
+
+  Stream<LiteRtLmEvent> generateContentStream(List<LiteRtLmContent> contents) {
+    if (_disposed) {
+      return Stream<LiteRtLmEvent>.value(
+        const LiteRtLmFailed(
+          LiteRtLmDisposed('LiteRT-LM session has been disposed'),
+        ),
+      );
+    }
+    return _backend.generateContentStream(_id, contents);
+  }
+
   Future<void> cancel() async {
     if (_disposed) {
       return;
@@ -323,4 +362,109 @@ LiteRtLmFailure liteRtLmFailureFromMap(Map<Object?, Object?> map) {
 
 Map<String, Object?> liteRtLmFailureToMap(LiteRtLmFailure failure) {
   return <String, Object?>{'code': failure.code, 'message': failure.message};
+}
+
+/// Represents content input to LiteRT-LM, such as text, images, or audio.
+sealed class LiteRtLmContent {
+  const LiteRtLmContent();
+
+  /// Creates a text content input.
+  const factory LiteRtLmContent.text(String text) = LiteRtLmTextContent;
+
+  /// Creates an image content input.
+  const factory LiteRtLmContent.image(List<int> bytes) = LiteRtLmImageContent;
+
+  /// Creates an image end marker input.
+  const factory LiteRtLmContent.imageEnd() = LiteRtLmImageEndContent;
+
+  /// Creates an audio content input.
+  const factory LiteRtLmContent.audio(List<int> bytes) = LiteRtLmAudioContent;
+
+  /// Creates an audio end marker input.
+  const factory LiteRtLmContent.audioEnd() = LiteRtLmAudioEndContent;
+}
+
+/// Text content input.
+final class LiteRtLmTextContent extends LiteRtLmContent {
+  const LiteRtLmTextContent(this.text);
+  final String text;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LiteRtLmTextContent &&
+          runtimeType == other.runtimeType &&
+          text == other.text;
+
+  @override
+  int get hashCode => text.hashCode;
+
+  @override
+  String toString() => 'LiteRtLmTextContent(text: $text)';
+}
+
+/// Image content input (raw bytes).
+final class LiteRtLmImageContent extends LiteRtLmContent {
+  const LiteRtLmImageContent(this.bytes);
+  final List<int> bytes;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LiteRtLmImageContent &&
+          runtimeType == other.runtimeType &&
+          bytes == other.bytes;
+
+  @override
+  int get hashCode => bytes.hashCode;
+
+  @override
+  String toString() => 'LiteRtLmImageContent(bytes length: ${bytes.length})';
+}
+
+/// Image end marker content.
+final class LiteRtLmImageEndContent extends LiteRtLmContent {
+  const LiteRtLmImageEndContent();
+
+  @override
+  bool operator ==(Object other) => other is LiteRtLmImageEndContent;
+
+  @override
+  int get hashCode => runtimeType.hashCode;
+
+  @override
+  String toString() => 'LiteRtLmImageEndContent()';
+}
+
+/// Audio content input (raw bytes).
+final class LiteRtLmAudioContent extends LiteRtLmContent {
+  const LiteRtLmAudioContent(this.bytes);
+  final List<int> bytes;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LiteRtLmAudioContent &&
+          runtimeType == other.runtimeType &&
+          bytes == other.bytes;
+
+  @override
+  int get hashCode => bytes.hashCode;
+
+  @override
+  String toString() => 'LiteRtLmAudioContent(bytes length: ${bytes.length})';
+}
+
+/// Audio end marker content.
+final class LiteRtLmAudioEndContent extends LiteRtLmContent {
+  const LiteRtLmAudioEndContent();
+
+  @override
+  bool operator ==(Object other) => other is LiteRtLmAudioEndContent;
+
+  @override
+  int get hashCode => runtimeType.hashCode;
+
+  @override
+  String toString() => 'LiteRtLmAudioEndContent()';
 }
