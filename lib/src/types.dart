@@ -5,6 +5,45 @@ import 'backend.dart';
 const LiteRtLmGenerationParams defaultLiteRtLmGenerationParams =
     LiteRtLmGenerationParams();
 
+final class LiteRtLmModelConfig {
+  const LiteRtLmModelConfig({
+    required this.id,
+    required this.huggingFaceModelId,
+    required this.huggingFaceModelPage,
+  });
+
+  final String id;
+  final String huggingFaceModelId;
+  final String huggingFaceModelPage;
+}
+
+const LiteRtLmModelConfig gemma4E2bModelConfig = LiteRtLmModelConfig(
+  id: 'gemma-4-e2b',
+  huggingFaceModelId: 'litert-community/gemma-4-E2B-it-litert-lm',
+  huggingFaceModelPage:
+      'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm',
+);
+
+const LiteRtLmModelConfig gemma4E4bModelConfig = LiteRtLmModelConfig(
+  id: 'gemma-4-e4b',
+  huggingFaceModelId: 'litert-community/gemma-4-E4B-it-litert-lm',
+  huggingFaceModelPage:
+      'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm',
+);
+
+const List<LiteRtLmModelConfig> availableLiteRtLmModelConfigs =
+    <LiteRtLmModelConfig>[gemma4E2bModelConfig, gemma4E4bModelConfig];
+
+const Map<String, LiteRtLmModelConfig> availableLiteRtLmModelConfigById =
+    <String, LiteRtLmModelConfig>{
+      'gemma-4-e2b': gemma4E2bModelConfig,
+      'gemma-4-e4b': gemma4E4bModelConfig,
+    };
+
+LiteRtLmModelConfig? liteRtLmModelConfigFor(String modelId) {
+  return availableLiteRtLmModelConfigById[modelId];
+}
+
 final class LiteRtLmEngineConfig {
   const LiteRtLmEngineConfig({
     required this.modelPath,

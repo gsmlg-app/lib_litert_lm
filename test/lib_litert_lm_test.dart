@@ -3,6 +3,35 @@ import 'package:lib_litert_lm/lib_litert_lm.dart';
 import 'package:lib_litert_lm/src/fake_backend.dart';
 
 void main() {
+  test('available model configs map supported ids to Hugging Face pages', () {
+    expect(
+      availableLiteRtLmModelConfigs.map((config) => config.id),
+      const <String>['gemma-4-e2b', 'gemma-4-e4b'],
+    );
+    expect(availableLiteRtLmModelConfigById.keys, const <String>[
+      'gemma-4-e2b',
+      'gemma-4-e4b',
+    ]);
+
+    expect(
+      liteRtLmModelConfigFor('gemma-4-e2b')?.huggingFaceModelId,
+      'litert-community/gemma-4-E2B-it-litert-lm',
+    );
+    expect(
+      liteRtLmModelConfigFor('gemma-4-e2b')?.huggingFaceModelPage,
+      'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm',
+    );
+    expect(
+      liteRtLmModelConfigFor('gemma-4-e4b')?.huggingFaceModelId,
+      'litert-community/gemma-4-E4B-it-litert-lm',
+    );
+    expect(
+      liteRtLmModelConfigFor('gemma-4-e4b')?.huggingFaceModelPage,
+      'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm',
+    );
+    expect(liteRtLmModelConfigFor('gemma-4-e9b'), isNull);
+  });
+
   test('loads engine, creates session, and generates text', () async {
     final backend = FakeLiteRtLmBackend(generateText: 'hello from fake');
     final client = LiteRtLm.testing(backend);

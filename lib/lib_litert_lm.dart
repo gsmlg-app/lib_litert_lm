@@ -13,6 +13,7 @@ export 'src/types.dart'
         LiteRtLmFailure,
         LiteRtLmGenerationFailure,
         LiteRtLmGenerationParams,
+        LiteRtLmModelConfig,
         LiteRtLmModelNotFound,
         LiteRtLmNativeInitFailure,
         LiteRtLmOk,
@@ -27,6 +28,11 @@ export 'src/types.dart'
         LiteRtLmImageContent,
         LiteRtLmImageEndContent,
         LiteRtLmAudioContent,
-        LiteRtLmAudioEndContent;
+        LiteRtLmAudioEndContent,
+        availableLiteRtLmModelConfigById,
+        availableLiteRtLmModelConfigs,
+        gemma4E2bModelConfig,
+        gemma4E4bModelConfig,
+        liteRtLmModelConfigFor;
 export 'src/openai_server.dart'
     show LiteRtLmOpenAiServer, LiteRtLmOpenAiServerConfig;
