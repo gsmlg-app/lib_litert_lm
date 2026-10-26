@@ -2,350 +2,216 @@
 
 [![pub package](https://img.shields.io/pub/v/lib_litert_lm.svg)](https://pub.dev/packages/lib_litert_lm)
 [![CI](https://github.com/gsmlg-app/lib_litert_lm/actions/workflows/ci.yml/badge.svg)](https://github.com/gsmlg-app/lib_litert_lm/actions/workflows/ci.yml)
-[![Tests](https://github.com/gsmlg-app/lib_litert_lm/actions/workflows/test.yml/badge.svg)](https://github.com/gsmlg-app/lib_litert_lm/actions/workflows/test.yml)
-[![End-to-End](https://github.com/gsmlg-app/lib_litert_lm/actions/workflows/e2e.yml/badge.svg)](https://github.com/gsmlg-app/lib_litert_lm/actions/workflows/e2e.yml)
 
-Android-only Flutter FFI bindings for the LiteRT-LM C API from [`google-ai-edge/LiteRT-LM`](https://github.com/google-ai-edge/LiteRT-LM).
+Android arm64 Flutter FFI bindings for [LiteRT-LM](https://github.com/google-ai-edge/LiteRT-LM).
+Callers supply a local `.litertlm` file. Text, image and audio messages use the
+runtime's Conversation, model chat template and processors.
 
-This package provides a high-performance, responsive Dart and Flutter interface to run Large Language Models on Android devices using the official Google LiteRT-LM native runtime.
+## Runtime and acceptance status
 
----
+The source and generated ABI target **v0.18.1**, commit
+`bda624851d74be34d4e1f7fac1fc4155939539c7`, NDK `28.2.13676358`, Bazel `7.6.1`.
+The main runtime, GPU libraries, vendor dispatch libraries, header, bindings and
+bridge must be built and verified together. A v0.12 bundle is incompatible and
+fails initialization; replacing only one library is unsupported.
 
-## Table of Contents
+The tracked Gemma-4-E2B validation artifact is
+`gemma-4-E2B-it.litertlm` at revision
+`1caa527c1e88b55f046fcd8d2b4265606680663d`, SHA256
+`181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c`.
+Its published capacity is **32K**. Artifact metadata is recorded in
+[tool/models/gemma-4-e2b.json](tool/models/gemma-4-e2b.json); model names alone do
+not establish capacity or backend compatibility.
 
-- [Project Structure](#project-structure)
-- [Prerequisites \& Setup](#prerequisites--setup)
-- [Android App Configuration](#android-app-configuration)
-- [Available Models](#available-models)
-- [Running Tests](#running-tests)
-- [Running the Example App](#running-the-example-app)
-- [Native Build](#native-build)
-- [Dart API \& Worker Isolate Architecture](#dart-api--worker-isolate-architecture)
-- [OpenAI-Compatible HTTP Server](#openai-compatible-http-server)
-- [Error Mapping](#error-mapping)
-- [Scope](#scope)
-- [CI/CD Workflows](#cicd-workflows)
+**No Android device or Gemma model run has been verified in this repair.**
+The 4K/8K/16K/32K tiers remain unverified. Native ownership fixtures establish
+FFI safety properties; they do not establish Gemma tokenization, inference,
+long-context capacity, or device performance. See
+[Android validation](doc/android-validation.md) for the run matrix and evidence.
+See [native build](doc/native-build.md) for build status and bundle gates.
 
----
-
-## Project Structure
-
-The package is organized in a single-package shape for ease of integration:
-
-```text
-lib_litert_lm/
-├── android/                  # Android Gradle config & prebuilt native .so libraries
-│   └── src/main/jniLibs/     # Bundled CPU, Vulkan, and NPU dispatch runtimes per ABI
-├── doc/                      # Deep-dive documentation
-│   └── native-build.md       # Detailed guide on building native libraries
-├── example/                  # Flutter demonstration app for CPU/GPU/NPU testing
-├── lib/                      # Dart FFI library source code
-│   ├── lib_litert_lm.dart    # Main package entrypoint exporting public APIs
-│   └── src/
-│       ├── backend.dart      # Common backend interface
-│       ├── bindings/         # Auto-generated C API bindings (via ffigen)
-│       ├── fake_backend.dart # In-memory backend for mocking and unit testing
-│       ├── native_backend.dart # Production FFI implementation running in a worker isolate
-│       ├── openai_server.dart  # Lightweight OpenAI-compatible HTTP server wrapper
-│       └── types.dart        # Public configuration records and exception types
-├── test/                     # Unit test suites using the fake backend
-├── tool/                     # Developer tooling
-│   └── build_litert_lm_android.sh  # Script to compile and bundle the Android C API wrapper
-└── ffigen.yaml               # Flutter ffigen configuration file
-```
-
----
-
-## Prerequisites & Setup
-
-Ensure you have the Flutter SDK installed on your system.
-
-To fetch dependencies and initialize the workspace, run:
+## Android setup
 
 ```bash
 flutter pub get
 ```
 
----
-
-## Android App Configuration
-
-Host apps should add the LiteRT-LM runtime declarations to
-`android/app/src/main/AndroidManifest.xml`. Merge these into the existing
-`<application>` element rather than replacing the generated Flutter manifest
-contents:
+The plugin contributes optional native-library declarations. Hosts may merge
+these into their existing `<application>` if their manifest policy requires it:
 
 ```xml
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application
-        android:largeHeap="true">
-        <uses-native-library android:name="libvndksupport.so" android:required="false" />
-        <uses-native-library android:name="libOpenCL.so" android:required="false" />
-    </application>
-</manifest>
+<uses-native-library android:name="libvndksupport.so" android:required="false" />
+<uses-native-library android:name="libOpenCL.so" android:required="false" />
 ```
 
-`android:largeHeap="true"` gives large local models more room to load, while
-the optional native-library declarations allow Android to expose vendor runtime
-libraries such as VNDK support and OpenCL when they are present on the device.
+`largeHeap` controls the managed heap; neither it nor physical RAM establishes
+native/GPU context capacity. GPU/NPU execution requires a compatible artifact,
+device driver and packaged runtime. NPU vendor dispatch can additionally need
+vendor SDK libraries and `litertDispatchLibDir`.
 
----
-
-## Available Models
-
-The public model catalog maps the supported package model IDs to their
-Hugging Face model pages:
-
-| Model ID | Hugging Face model |
-| --- | --- |
-| `gemma-4-e2b` | [`litert-community/gemma-4-E2B-it-litert-lm`](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm) |
-| `gemma-4-e4b` | [`litert-community/gemma-4-E4B-it-litert-lm`](https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm) |
-
-```dart
-final modelConfig = liteRtLmModelConfigFor('gemma-4-e4b');
-print(modelConfig?.huggingFaceModelPage);
-```
-
----
-
-## Running Tests
-
-Unit tests are written using a mock/fake backend ([`FakeLiteRtLmBackend`](file:///Users/gao/Workspace/gsmlg-app/lib_litert_lm/lib/src/fake_backend.dart)), which executes completely in Dart. This means **no Android device, NDK, or native build environment is required** to run tests.
-
-Execute all unit tests with:
-
-```bash
-flutter test
-```
-
----
-
-## Running the Example App
-
-The `example` directory contains a Flutter application that demonstrates how to pick a model file, load it using a chosen backend, and generate stream responses.
-
-To run the example app:
-
-1. Connect an Android device or start an Android Emulator.
-2. Change directory and execute:
-   ```bash
-   cd example
-   flutter run
-   ```
-
-### Example App Features
-- **Model Picker**: Use the system file picker to select a local `.litertlm` model file.
-- **Backend Selector**: Toggle between **CPU**, **GPU (Vulkan)**, and **NPU** runtimes at launch.
-- **NPU Directory Field**: Input the custom dispatch library directory path (usually the application's `nativeLibraryDir`) required to load Qualcomm, MediaTek, or Google Tensor NPU accelerators.
-- **Streaming & Cancellation**: Start generation and stream text tokens to the UI in real-time, with option to cancel the generation mid-stream.
-
----
-
-## Native Build
-
-Maintainers build and bundle the native C libraries first. Consumers do not run Bazel from Gradle; instead, they receive prebuilt libraries located in `android/src/main/jniLibs/<abi>/`.
-
-### Build Command
-
-```bash
-tool/build_litert_lm_android.sh
-```
-
-### Pinned Native Inputs
-- **LiteRT-LM Tag**: `v0.12.0`
-- **LiteRT-LM Commit**: `ffed38adbc33509480b5340e5173638bc20a68ff`
-- **Bazel**: `7.6.1` (automatically bootstrapped by the script if not present)
-- **Android NDK**: `28.2.13676358`
-- **Primary Target ABI**: `arm64-v8a`
-- **Default Accelerator Bundle**: `vulkan,npu`
-
-### Shared Library Wrapper & Symbol Verification
-The build script patches upstream `c/BUILD` to wrap the C API with a `cc_binary(linkshared = True)`. The core LiteRT C API is linked statically into `liblitert_lm_c.so` using:
-- `--dynamic_mode=off`
-- `linkstatic = True`
-- `--define=litert_link_capi_so=false`
-
-Only the required FFI exports (`LiteRt*` and `litert_lm_*`) are placed in the dynamic symbol table using a custom linker dynamic-list file:
-```text
-{
-  LiteRt*;
-  litert_lm_*;
-};
-```
-The script runs `llvm-nm` to ensure critical exports are present, and validates that every bundled library complies with **Android 15+ 16 KB page-alignment** using `llvm-readobj` program headers (`PT_LOAD` segment alignment check).
-
-For more detailed information, see [doc/native-build.md](doc/native-build.md).
-
----
-
-## Dart API & Worker Isolate Architecture
-
-To ensure the Flutter UI remains responsive (60fps/120fps) and completely free of frame drops (jank), **all native calls are confined to one long-lived background worker isolate**. 
-
-The main UI thread interacts only with Dart proxy handles (`LiteRtLmEngine` and `LiteRtLmSession`). Data and event streams are serialized and communicated across isolates via `SendPort` and `ReceivePort`.
-
-### Usage Example
+## Persistent chat
 
 ```dart
 import 'package:lib_litert_lm/lib_litert_lm.dart';
 
-// 1. Initialize the client (loads the native FFI library)
 final clientResult = await LiteRtLm.create();
-final client = clientResult.valueOrNull;
-if (client == null) {
-  print('Init error: ${clientResult.errorOrNull}');
-  return;
-}
-
-// 2. Load the LLM engine with configuration
-final engineResult = await client.loadEngine(
-  const LiteRtLmEngineConfig(
-    modelPath: '/data/local/tmp/gemini-nano.litertlm',
-    backend: 'cpu', // 'cpu', 'gpu' (Vulkan), or 'npu'
-  ),
+final client = clientResult.valueOrNull!; // Handle errorOrNull in an application.
+final engineResult = await client.loadEngine(const LiteRtLmEngineConfig(
+  modelPath: '/data/user/0/your.app/files/gemma-4-E2B-it.litertlm',
+  modelId: 'gemma-4-e2b',
+  backend: 'cpu',
+  maxNumTokens: 8192, // Total input + history + generated-token context.
+));
+final engine = engineResult.valueOrNull!;
+final chatResult = await engine.createConversation(
+  messages: [LiteRtLmMessage.text(role: 'system', text: 'Answer concisely.')],
+  params: const LiteRtLmGenerationParams(maxTokens: 256), // Per response.
 );
-final engine = engineResult.valueOrNull;
-if (engine == null) {
-  print('Load error: ${engineResult.errorOrNull}');
-  return;
-}
-
-// 3. Create a generation session with parameters
-final sessionResult = await engine.createSession(
-  params: const LiteRtLmGenerationParams(
-    temperature: 0.7,
-    topK: 40,
-    maxTokens: 512,
-  ),
-);
-final session = sessionResult.valueOrNull!;
-
-// 4. Stream tokens in real time
-final eventStream = session.generateStream('Explain quantum computing.');
-await for (final event in eventStream) {
-  switch (event) {
-    case LiteRtLmToken(:final text):
-      // Fired when a new text chunk is generated
-      print('Token: $text');
-    case LiteRtLmCompleted(:final text):
-      // Fired when generation finishes successfully
-      print('Complete generation: $text');
-    case LiteRtLmFailed(:final error):
-      // Fired if a generation error occurs
-      print('Generation error: ${error.message}');
-    case LiteRtLmCancelledEvent():
-      // Fired if the session generation was explicitly canceled
-      print('Generation canceled');
+final chat = chatResult.valueOrNull!;
+try {
+  final message = LiteRtLmMessage.text(text: '请解释本地注意力。');
+  final budgetResult = await chat.budget(messages: [message], outputReserve: 256);
+  final budget = budgetResult.valueOrNull!;
+  if (budget.requiredTokens! > budget.contextTokens) {
+    // The caller chooses summarization/trimming/reset; the library never trims.
+    throw StateError('Need ${budget.requiredTokens}, have ${budget.contextTokens}');
   }
+  await for (final event in chat.sendStream(message)) {
+    if (event is LiteRtLmToken) print(event.text);
+    if (event is LiteRtLmFailed) print(event.error.message);
+  }
+  // Append ONLY the new message. The native conversation retains prior turns.
+  final next = await chat.send(LiteRtLmMessage.text(text: 'Give an example.'));
+  print(next.valueOrNull ?? next.errorOrNull);
+  print((await chat.getMetrics()).valueOrNull?.toJson());
+} finally {
+  await chat.dispose();
+  await engine.dispose();
+  await client.dispose();
 }
-
-// 5. Clean up resources
-await session.dispose();
-await engine.dispose();
-await client.dispose();
 ```
 
-### Loading NPU Runtimes
-To load the model on an NPU accelerator, specify the backend as `'npu'` and point to the directory containing vendor dispatch libraries:
+`engine.generateMessages(history)` is the one-shot full-history entry point.
+`createConversation(messages: preface)` creates a reusable chat; each `send` or
+`sendMessages` appends new messages. A batch with multiple messages rebuilds
+its completed prefix as a native preface and repeats prefill; single-message
+sends retain the native KV cache. This avoids the upstream single-turn renderer
+ignoring array message bodies. Roles remain structured and the native model
+template is applied once. Only system/user/assistant text, image and audio
+content is supported; tools/video/unknown roles are rejected explicitly.
+
+## Cancellation and ownership
+
+Future generation collects the same asynchronous operation as Stream generation.
+The control isolate can receive cancellation while native prefill/decode runs.
+`cancel()` acknowledges the **request**; await the generation terminal result,
+subscription cancellation, or `dispose()` for cleanup completion. A session
+rejects overlapping generations with `LiteRtLmBusy`.
+
+A static C++ callback copies borrowed native strings before returning. A bounded
+queue holds at most 64 events / 1 MiB with a reserved terminal slot. Slow or
+paused consumers that overflow receive `LiteRtLmBackpressure`; native producers
+never wait for Dart. Stream chunks can contain several model tokens.
+
+Unsubscription stops delivery while the worker drains and frees native payloads.
+Cancellation and errors delete/join the native session before releasing operation
+state. v0.18.1 marks cancelled sessions poisoned: the next Conversation request
+rebuilds from completed structured history, preserving model channels and dropping
+the cancelled turn. Rebuilding repeats prefill. Raw untemplated sessions restart
+with an empty context after cancellation/error. Parent disposal invalidates all
+children; later child `cancel`/`dispose` calls are idempotent. Worker exit/error
+settles pending requests; a process-level native SIGSEGV remains process-fatal.
+
+## Model capacity, budget and metrics
+
+`client.inspectModel(path)` and `engine.getInfo()` report artifact SHA256,
+optional model ID/revision, supported modality backends, dynamic/static capacity,
+requested/effective context, runtime version/commit and initialization time.
+Dynamic models default to at most 4096 tokens; request larger contexts explicitly.
+Static models require their fixed artifact context. `prefillChunkSize` is accepted
+only for CPU dynamic-context models; GPU does not offer equivalent chunk control.
+
+`chat.budget` renders with the native model template and processor, counts its
+actual tokenizer/BOS/image-patch/audio-frame inputs and includes committed context
+and output reserve. An empty message list queries committed context with zero new
+input. `engine.tokenize(text)` counts raw text only, without chat-template overhead.
+Context overflow returns `LiteRtLmContextFull` with required/available counts when
+known. Nothing is silently truncated. Media budgeting decodes/preprocesses input
+and can be expensive; generation still performs its own native preprocessing.
+
+`getMetrics()` reports available native prefill/decode token counts and rates,
+prefill seconds, context use, backend and effective context. Prefill chunks are
+summed for the current operation without recounting previous turns. Wall TTFT
+starts after budget validation and ends at the first visible response chunk;
+`nativeTimeToFirstTokenSeconds` is the upstream decode-first-token measure and
+excludes separately measured prefill. Unavailable metrics remain null. Native
+errors retain their message; only explicit allocation evidence is classified OOM.
+
+## Images and audio
+
+Set `visionBackend` / `audioBackend` explicitly when loading the engine. Both are
+null by default so text-only engines do not initialize encoders:
 
 ```dart
-final engineResult = await client.loadEngine(
-  const LiteRtLmEngineConfig(
-    modelPath: '/path/to/model.litertlm',
-    backend: 'npu',
-    litertDispatchLibDir: '/data/app/native/lib', // App's nativeLibraryDir containing NPU .so dispatch files
-  ),
+final config = LiteRtLmEngineConfig(
+  modelPath: modelPath,
+  backend: 'cpu',
+  visionBackend: 'cpu', // Must be supported by this exact artifact.
+  audioBackend: 'cpu',
 );
+final message = LiteRtLmMessage(role: 'user', contents: [
+  LiteRtLmContent.image(await File(imagePath).readAsBytes()),
+  const LiteRtLmContent.text('Describe the image.'),
+]);
 ```
 
----
+Import `dart:io` for the file example. Inputs are encoded **PNG/JPEG** or **WAV**
+files, 1 byte to 32 MiB each, not raw pixel/PCM buffers. The model processor
+performs native decoding, resampling/patch extraction and tensor preparation;
+its format, duration and resolution limits can return native validation errors.
+Disabled encoders and artifact/backend mismatches return `LiteRtLmUnsupported`.
+Damaged input returns a failure with native details. Legacy imageEnd/audioEnd
+markers remain accepted immediately after their matching content; processors
+insert native delimiters. The example picks real files and validates signatures.
 
-## OpenAI-Compatible HTTP Server
+## OpenAI-compatible adapter
 
-The package includes `LiteRtLmOpenAiServer`, an HTTP server built on `dart:io` that exposes an OpenAI-compatible API wrapping a loaded engine. This allows local app-level integrations or testing via external developer toolchains (e.g. SDKs, playground interfaces).
+`LiteRtLmOpenAiServer(engine: engine)` exposes `/health`, `/v1/models`,
+`/v1/chat/completions`, and `/v1/completions`. Chat messages use the same native
+Conversation path; they are not flattened into `SYSTEM: / USER:` text. HTTP is
+stateless: each request prefills its supplied full history. There is no implicit
+global chat or cross-request cache. Use the Dart Conversation for persistent chat.
 
-### Configuration Options
-Use `LiteRtLmOpenAiServerConfig` to adjust:
-- `modelId` (Default: `'litert-lm-local'`): The ID representing the model.
-- `apiKey` (Optional): A bearer API token required for authorization.
-- `enableCors` (Default: `true`): Appends standard CORS headers to support web requests.
-- `defaultParams`: Default fallback `LiteRtLmGenerationParams`.
+The adapter accepts supported text roles/content and the documented sampling
+subset; unsupported tool/media/unknown parameters return explicit errors.
+Usage comes from real native metrics, with null for unavailable values, never
+whitespace counts. Streaming disconnect cancels/cleans its operation; immediate
+non-stream peer-disconnect cancellation is not guaranteed by `dart:io`'s buffered
+response transport. Server shutdown cancels all registered active operations.
 
-### Exposing and Binding
-```dart
-final server = LiteRtLmOpenAiServer(
-  engine: engine,
-  config: const LiteRtLmOpenAiServerConfig(
-    modelId: 'gemini-nano',
-    apiKey: 'my-secret-key',
-  ),
-);
+## Verification and delivery
 
-// Bind to local address and port
-final bindResult = await server.bind(address: '127.0.0.1', port: 8080);
-print('Server running at: ${server.uri}'); // http://127.0.0.1:8080
-```
+| Check | Purpose |
+| --- | --- |
+| Fake backend unit/widget tests | Public API, HTTP validation and UI control flow |
+| `integration_test/app_e2e_test.dart` | UI smoke using fake backend; no native-loading claim |
+| `tool/test_native.sh` | ASan/UBSan C++ ownership test plus threaded host FFI production-worker fixture |
+| `python3 -m unittest discover -s test/build -v` | Fail-closed ELF, symbols/provenance, archive and device-tool regressions |
+| `integration_test/native_model_test.dart` | Opt-in Android real-model capacity/retrieval/cancel/media tests |
 
-### Supported API Endpoints
-1. `GET /v1/models`
-2. `POST /v1/chat/completions` (chat history)
-3. `POST /v1/completions` (legacy text generation)
-4. `GET /health` (simple health-check endpoint returning `{"status": "ok"}`)
-
-### Client Completion Example (SSE Stream)
 ```bash
-curl http://127.0.0.1:8080/v1/chat/completions \
-  -H 'Authorization: Bearer my-secret-key' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "model": "gemini-nano",
-    "messages": [
-      {"role": "user", "content": "How far is the Moon?"}
-    ],
-    "stream": true
-  }'
+dart format --output=none --set-exit-if-changed lib test example/lib example/test example/integration_test
+flutter analyze
+tool/test_native.sh
+flutter test
+(cd example && flutter test)
+python3 -m unittest discover -s test/build -v
 ```
 
----
-
-## Error Mapping
-
-Rather than passing raw C status codes or pointers directly, errors are structured as sealed Dart classes inheriting from `LiteRtLmFailure`.
-
-| C Condition / Error string | Dart Exception Class | Exception Code (`.code`) |
-| --- | --- | --- |
-| Model path does not exist before load | `LiteRtLmModelNotFound` | `'model-not-found'` |
-| Model path does not end in `.litertlm` | `LiteRtLmUnsupportedModel` | `'unsupported-model'` |
-| Native initialization / memory allocation failure | `LiteRtLmOutOfMemory` | `'oom'` |
-| Underlying FFI Dynamic Library load fails | `LiteRtLmNativeInitFailure` | `'native-init-failure'` |
-| Generation engine failures or callback errors | `LiteRtLmGenerationFailure` | `'generation-failure'` |
-| Session cancelled by user | `LiteRtLmCancelled` | `'cancelled'` |
-| Methods called after engine or session is closed | `LiteRtLmDisposed` | `'disposed'` |
-
----
-
-## Scope
-
-### In Scope
-- Loading `.litertlm` models from local Android filesystem paths.
-- Execution via CPU, GPU (Vulkan), or NPU (Tensor, Qualcomm, MediaTek).
-- Real-time token streaming and prompt-template application.
-- Direct parameter adjustments (temperature, topK, maxTokens, random seed).
-- Clean resource isolation in a dedicated background worker thread.
-- Standardized local HTTP completion server compatibility.
-
-### Out of Scope (First Version)
-- Remote model downloading, cloud hosting, or asset extraction.
-- Multimodal generations (images, audio, video).
-- Function/Tool calling and structural JSON constraints.
-
----
-
-## CI/CD Workflows
-
-Continuous Integration is set up under `.github/workflows/` using GitHub Actions:
-
-- **Lints & Unit Tests** ([`ci.yml`](file:///Users/gao/Workspace/gsmlg-app/lib_litert_lm/.github/workflows/ci.yml), [`test.yml`](file:///Users/gao/Workspace/gsmlg-app/lib_litert_lm/.github/workflows/test.yml)): Automatically validates Dart syntax, code lints (`flutter_lints`), and executes all unit tests on every pull request.
-- **Native Android Build** ([`native-android.yml`](file:///Users/gao/Workspace/gsmlg-app/lib_litert_lm/.github/workflows/native-android.yml)): Builds the native `liblitert_lm_c.so` library for the designated ABIs using Bazel.
-- **E2E Integration & Smoke Tests** ([`e2e.yml`](file:///Users/gao/Workspace/gsmlg-app/lib_litert_lm/.github/workflows/e2e.yml)): Spawns emulator instances to run smoke/integration tests verifying native loading.
-- **Auto Release Automation** ([`release.yml`](file:///Users/gao/Workspace/gsmlg-app/lib_litert_lm/.github/workflows/release.yml)): Manages package version tagging, changelog generation, and automated uploads.
+[Native build instructions](doc/native-build.md) cover generating the whole bundle,
+checking all Dart/bridge symbols, 16 KiB ELF/ZIP alignment and actual APK/AAB
+packaging. CI and publish workflows require matching `native-build.json` provenance
+and package checks; `flutter build apk --config-only` is only a configuration check.
+The example release signing configuration uses the Android debug key; its artifacts
+are validation/demo outputs. Publish workflows do not establish device inference
+or long-context acceptance and must not advertise unrun tiers as verified.

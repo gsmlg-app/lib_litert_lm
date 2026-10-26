@@ -1,224 +1,193 @@
-# LiteRT-LM Android Native Build
+# LiteRT-LM Android native build
 
-This package bundles a maintainer-built LiteRT-LM C API shared object for
-Android. Consumers do not run Bazel from Gradle; they receive the prebuilt
-library under `android/src/main/jniLibs/<abi>/`.
+Consumers load the maintainer bundle in `android/src/main/jniLibs/arm64-v8a/`.
+Gradle does not run Bazel. The entire bundle and ABI must agree; old v0.12
+binaries cannot be used with the current Conversation/bridge bindings.
 
-## Pinned Inputs
+## Fixed inputs
 
-- LiteRT-LM repository: `https://github.com/google-ai-edge/LiteRT-LM.git`
-- LiteRT-LM tag: `v0.12.0`
-- LiteRT-LM commit: `ffed38adbc33509480b5340e5173638bc20a68ff`
-- Bazel: `7.6.1` from upstream `.bazelversion`
-- Android NDK: `28.2.13676358`
-- Git LFS: required for pinned GPU/Vulkan prebuilt runtime libraries
-- First supported ABI: `arm64-v8a`
-- Output directory: `android/src/main/jniLibs/arm64-v8a/`
-- Main FFI library: `liblitert_lm_c.so`
-- Default accelerator bundle: `vulkan,npu`
-
-## Shared-Library Wrapper
-
-LiteRT-LM exposes the C API as the Bazel `cc_library` target `//c:engine`.
-There is no upstream shared-library target. The maintainer script patches the
-checked-out source tree by adding this target to `c/BUILD`:
-
-```python
-cc_binary(
-    name = "liblitert_lm_c.so",
-    additional_linker_inputs = [
-        ":litert_lm_c_api.lds",
-    ],
-    linkopts = [
-        "-Wl,--dynamic-list,$(location :litert_lm_c_api.lds)",
-        "-Wl,-z,max-page-size=16384",
-        "-Wl,-z,common-page-size=16384",
-    ],
-    linkshared = True,
-    linkstatic = True,
-    visibility = ["//visibility:public"],
-    deps = [
-        ":engine",
-    ],
-)
-```
-
-The dynamic list is:
-
-```text
-{
-  LiteRt*;
-  litert_lm_*;
-};
-```
-
-This keeps the C API names in the dynamic symbol table for Dart FFI lookup.
-The script then verifies that at least `litert_lm_engine_create` and
-`litert_lm_session_generate_content_stream` are exported.
-
-The script also patches LiteRT-LM's `minizip` `http_archive` to include the
-official GitHub zlib release URL before `zlib.net`. The checksum stays pinned
-to the upstream LiteRT-LM value; this only gives Bazel a stable mirror if one
-archive endpoint returns a corrupt or partial download.
-
-## LiteRt Linkage Choice
-
-This package uses static linkage for the core LiteRT C API inside
-`liblitert_lm_c.so`:
-
-- `--config=android_arm64` already sets Android `--dynamic_mode=off` upstream.
-- The wrapper target uses `linkstatic = True`.
-- The build command passes `--define=litert_link_capi_so=false`.
-
-The FFI entrypoint therefore does not require a separately packaged
-`libLiteRt.so`. Vulkan/GPU and NPU support are different: LiteRT-LM expects
-accelerator and dispatch runtime libraries beside the main wrapper. The
-maintainer build ships an Android native runtime bundle per ABI:
-
-- `liblitert_lm_c.so`, the Dart FFI entrypoint.
-- LiteRT-LM Android GPU/Vulkan runtime libraries copied from the pinned
-  upstream `prebuilt/android_<abi>/` directory.
-- NPU dispatch libraries built from the pinned LiteRT vendor dispatch targets.
-
-If a future build chooses dynamic LiteRT C API linkage, `libLiteRt.so` must also
-be bundled beside `liblitert_lm_c.so` and loaded before the LiteRT-LM library.
-
-## Build Command
-
-Run this from the package root:
-
-```bash
-tool/build_litert_lm_android.sh
-```
-
-Useful overrides:
-
-```bash
-ANDROID_NDK_HOME=/path/to/android-ndk-r28b \
-ABI=arm64-v8a \
-tool/build_litert_lm_android.sh
-```
-
-For the default Vulkan and NPU runtime bundle:
-
-```bash
-ANDROID_NDK_HOME=/path/to/android-ndk-r28b \
-ABI=arm64-v8a \
-ACCELERATORS=vulkan,npu \
-tool/build_litert_lm_android.sh
-```
-
-Useful accelerator overrides:
-
-- `ACCELERATORS=vulkan` builds the FFI wrapper and copies the pinned
-  GPU/Vulkan runtime libraries.
-- `ACCELERATORS=npu` builds the FFI wrapper and NPU dispatch libraries.
-- `NPU_TARGETS="..."` replaces the default LiteRT vendor dispatch target list
-  when a vendor SDK or upstream target name changes.
-- `NPU_VENDOR_LIB_DIRS="/path/a:/path/b"` copies vendor runtime `.so` files
-  such as Qualcomm QAIRT or MediaTek NeuroPilot libraries into the ABI bundle.
-
-The script:
-
-1. Clones the pinned LiteRT-LM source with `GIT_LFS_SKIP_SMUDGE=1`.
-2. Pulls the pinned Android GPU/Vulkan prebuilt `.so` LFS objects when
-   `ACCELERATORS` contains `vulkan` or `gpu`.
-3. Bootstraps Bazel `7.6.1` if `bazelisk` or matching `bazel` is unavailable.
-4. Builds `//c:liblitert_lm_c.so` with `--config=android_arm64`.
-5. When `ACCELERATORS` contains `npu`, also builds the configured LiteRT NPU
-   dispatch targets.
-6. Copies `liblitert_lm_c.so`, GPU/Vulkan runtime libraries, and NPU dispatch
-   libraries into `android/src/main/jniLibs/arm64-v8a/`.
-7. Runs exported-symbol verification with NDK `llvm-nm`.
-8. Runs Android 15+ page alignment verification with NDK `llvm-readobj` for
-   every bundled `.so`.
-
-The default NPU targets are:
-
-```text
-@litert//litert/vendors/google_tensor/dispatch:dispatch_api_so
-@litert//litert/vendors/qualcomm/dispatch:dispatch_api_so
-@litert//litert/vendors/mediatek/dispatch:dispatch_api_so
-```
-
-Qualcomm and MediaTek builds can require their vendor SDKs. If those SDKs are
-not available in the maintainer environment, set `NPU_TARGETS` to the available
-dispatch target list rather than changing the consumer Gradle build. If the
-device backend also needs vendor runtime libraries, point `NPU_VENDOR_LIB_DIRS`
-at those extracted SDK library directories during the maintainer build.
-
-## Android Runtime Declarations
-
-GPU/Vulkan backend access can require optional native library declarations in
-the Android manifest. The plugin manifest contributes these declarations:
-
-```xml
-<uses-native-library android:name="libvndksupport.so" android:required="false" />
-<uses-native-library android:name="libOpenCL.so" android:required="false" />
-```
-
-For the NPU backend, create the engine with `backend: 'npu'` and pass
-`litertDispatchLibDir` as the app native library directory containing the
-bundled dispatch libraries.
-
-## Page Alignment
-
-Android 15+ devices can use 16 KB pages. The wrapper target passes:
-
-```text
--Wl,-z,max-page-size=16384
--Wl,-z,common-page-size=16384
-```
-
-The script rejects the output if any `PT_LOAD` segment reports alignment below
-`0x4000`. The check runs against every `.so` copied into
-`android/src/main/jniLibs/<abi>/`, including accelerator and dispatch runtime
-libraries.
-
-## Dart FFI Ownership Model
-
-All native calls run on one long-lived worker isolate. The UI isolate receives
-small Dart values and stream events over ports; it never owns native pointers.
-
-| Native value | Allocator | Owner | Free operation | Dart rule |
-| --- | --- | --- | --- | --- |
-| `LiteRtLmEngineSettings*` | `litert_lm_engine_settings_create` | Worker isolate during engine load | `litert_lm_engine_settings_delete` | Always freed after `litert_lm_engine_create`, success or failure |
-| Dispatch library directory UTF-8 buffer | Dart worker isolate via `package:ffi` allocator | Worker isolate for engine settings call duration | allocator `free` | Allocated only when `litertDispatchLibDir` is set; freed immediately after `litert_lm_engine_settings_set_litert_dispatch_lib_dir` |
-| `LiteRtLmEngine*` | `litert_lm_engine_create` | Worker isolate `Engine` handle table | `litert_lm_engine_delete` | Public `LiteRtLmEngine.dispose()` sends one dispose command and guards double dispose |
-| `LiteRtLmSessionConfig*` | `litert_lm_session_config_create` | Worker isolate during session creation | `litert_lm_session_config_delete` | Always freed after `litert_lm_engine_create_session`, success or failure |
-| `LiteRtLmSession*` | `litert_lm_engine_create_session` | Worker isolate `Session` handle table | `litert_lm_session_delete` | Public `LiteRtLmSession.dispose()` sends one dispose command and guards use after dispose |
-| Prompt UTF-8 buffer | Dart worker isolate via `package:ffi` allocator | Worker isolate for call duration | allocator `free` | Allocated before the native call, freed in `finally` after prefill/generate starts |
-| `LiteRtLmInputData[]` | Dart worker isolate via `package:ffi` allocator | Worker isolate for call duration | allocator `free` | The text buffer outlives the native call that receives the input array |
-| `LiteRtLmResponses*` | Native `litert_lm_session_generate_content` | Worker isolate during non-streaming generation | `litert_lm_responses_delete` | Copy response text to Dart before deleting the responses object |
-| `const char*` from `litert_lm_responses_get_response_text_at` | Native responses object | Borrowed only | Freed by `litert_lm_responses_delete` | Copy immediately with UTF-8 conversion; never free directly |
-| Stream callback `chunk` | Native stream implementation | Borrowed for callback duration | Native implementation | `NativeCallable.listener` copies chunk to Dart synchronously before returning |
-| Stream callback `error_msg` | Native stream implementation | Borrowed for callback duration | Native implementation | Copy to a sealed Dart error value before returning |
-| `NativeCallable` callback trampoline | Dart worker isolate | Active stream operation | `NativeCallable.close` | Closed on final/error stream event or cancellation |
-
-The current C callback strings are borrowed, not caller-freed. If LiteRT-LM
-adds native-allocated strings in a later C API, the wrapper must copy them and
-call the matching native delete/free function in the worker isolate.
-
-## Error Mapping
-
-The public Dart API returns sealed result/error values instead of raw native
-codes.
-
-| Native condition | Dart error |
+| Input | Value |
 | --- | --- |
-| Model path does not exist before native load | `LiteRtLmModelNotFound` |
-| Model path does not end in `.litertlm` | `LiteRtLmUnsupportedModel` |
-| `DynamicLibrary.open` or symbol lookup fails | `LiteRtLmNativeInitFailure` |
-| Native create function returns `NULL` | `LiteRtLmNativeInitFailure`, or `LiteRtLmOutOfMemory` if the native message indicates OOM |
-| Native status function returns non-zero | `LiteRtLmNativeInitFailure` for setup or `LiteRtLmGenerationFailure` for generation |
-| Stream callback receives `error_msg` | `LiteRtLmGenerationFailure`, or `LiteRtLmOutOfMemory`/`LiteRtLmUnsupportedModel` by message classification |
-| Public handle used after `dispose()` | `LiteRtLmDisposed` |
-| Stream unsubscribe or explicit cancel | `LiteRtLmCancelled` event, followed by native session cancellation |
+| LiteRT-LM | `v0.18.1` |
+| Source commit | `bda624851d74be34d4e1f7fac1fc4155939539c7` |
+| Repository | `https://github.com/google-ai-edge/LiteRT-LM.git` |
+| Bazel | `7.6.1`, upstream WORKSPACE build; Bzlmod is disabled upstream |
+| Android NDK | `28.2.13676358` |
+| ABI/config | `arm64-v8a` / `android_arm64` |
+| Accelerator selection | `vulkan,npu` by default |
+| Bridge ABI | `1` |
+| Core linkage | `linkstatic = True`, `--dynamic_mode=off`, `--define=litert_link_capi_so=false` |
+| Linker layout | `-z max-page-size=16384`, `-z common-page-size=16384` |
 
-Raw C status codes are intentionally not exposed.
+`tool/build_litert_lm_android.sh` copies both files from `native/` into the pinned
+checkout, adds a shared target around `//c:engine`, and exports `litert_lm_*`,
+`lrlm_*` and `LiteRt*`. It also links Conversation, ModelInfo and error APIs.
+The C++ model adapter intentionally depends on internal APIs from this exact
+commit; upgrading the runtime requires rebuilding and rechecking the adapter.
 
-## Out of Scope
+Vendored C headers are exact copies from that source commit. Regenerate bindings:
 
-The Dart API is shaped so more event types can be added later, but this first
-package does not implement model download/hosting, multimodal generation, or
-function calling. Callers provide a local `.litertlm` path.
+```bash
+flutter pub get
+dart run ffigen --config ffigen.yaml
+```
+
+Opaque C objects remain opaque. The generated ABI includes Conversation,
+ModelInfo, tokenizer, benchmark and error-reporting functions as well as the
+bridge. Every generated lookup and every bridge reference is checked against the
+main library's exported symbols, rather than checking two representative names.
+
+## Build and package verification
+
+Install Git LFS and the fixed NDK, then run from the package root:
+
+```bash
+ANDROID_NDK_HOME="$HOME/Library/Android/sdk/ndk/28.2.13676358" \
+ABI=arm64-v8a ACCELERATORS=vulkan,npu tool/build_litert_lm_android.sh
+python3 tool/verify_android_bundle.py android/src/main/jniLibs/arm64-v8a --require-provenance
+(cd example && flutter build apk --release --target-platform android-arm64)
+(cd example && flutter build appbundle --release --target-platform android-arm64)
+python3 tool/verify_android_bundle.py example/build/app/outputs/flutter-apk/app-release.apk --require-provenance
+python3 tool/verify_android_bundle.py example/build/app/outputs/bundle/release/app-release.aab --require-provenance
+```
+
+Use `BUILD_ROOT=/large/scratch/path` to put the checkout/Bazel bootstrap on a
+larger disk. Preserve default release pins; overrides are development inputs and
+must pass the provenance contract before publication. The build first stages the
+complete output, verifies it and only then replaces the installed ABI directory.
+A failed build leaves the previous bundle intact.
+
+The bundle includes the main library, GPU libraries from the pinned upstream LFS
+objects, and Google Tensor/Qualcomm/MediaTek NPU dispatch libraries built from the
+pinned LiteRT dependency. Optional `NPU_VENDOR_LIB_DIRS` directories supply vendor
+runtime libraries where a particular SDK/device needs them. These extra files are
+also inventoried and verified. `NPU_TARGETS` / `ACCELERATORS` can select a development
+subset; record the selection and do not call it the full default bundle.
+
+`native-build.json` records source tag/commit, LiteRT dependency revision,
+Bazel/NDK/ABI, accelerators, build flags, compatibility overrides, source/header/
+binding hashes, and every output library hash. The verifier checks this record
+against the current source. APK/AAB inventories and GNU build IDs must match the
+verified source bundle after Gradle stripping.
+
+The verifier parses ELF64 program headers directly. It rejects unreadable or
+invalid files, wrong architecture, zero `PT_LOAD` segments, truncated ranges,
+non-power-of-two or sub-16-KiB alignment, and incongruent load offsets/addresses.
+Symbol-reader failure is fatal. Every packaged `.so`, including Flutter and
+accelerator libraries, is checked. Uncompressed APK native entries also need
+16-KiB ZIP data alignment; AAB layout is not installed directly, so its embedded
+ELFs/inventory are checked separately from APK ZIP alignment. `--config-only`
+does not establish any of these final-package or runtime properties.
+
+## Compatibility patches and current build evidence
+
+The pinned release's legacy WORKSPACE initializes some transitive repositories
+before TensorFlow can select its required versions. The script records narrow,
+reproducible compatibility patches:
+
+- Predeclare TensorFlow's Rules CC `0.2.25` archive and initialize its
+  `bazel_features`/compatibility proxy before dependent workspace loads.
+- Remove one unconditional Google-only profiling dependency from LiteRT's public
+  Google Tensor dispatch BUILD target. Actual profiling code is already disabled
+  by `LITERT_GOOGLE_TENSOR_HAS_HOOKS`; the dispatch target remains in the bundle.
+- Keep the checksum-fixed zlib archive with an official GitHub release mirror.
+
+As of the 2026-10-27 local run, complete compilation remains **blocked during
+Bazel analysis**: Rules CC `0.2.25` requires Skylib >=1.8.0, but Rules Shell
+predeclares `1.7.1`, whose `bool_flag` lacks the `scope` attribute. The pinned
+TensorFlow workspace requests Skylib `1.9.0`, SHA256
+`3b5b49006181f5f8ff626ef8ddceaa95e9bb8ad294f7b5d7b11ea9f7ddaf8c59`.
+Unifying that dependency before its first declaration is the identified next
+build step. This is not evidence that Bazel itself needs upgrading.
+
+No new `.so` or provenance record has replaced the old tracked bundle. Current
+source is therefore **not release-ready** until the complete native build,
+provenance and APK/AAB checks succeed. Passing script/ELF regression tests does
+not establish that this C++ adapter compiled. See Android validation for the
+separate unrun device/model acceptance gates.
+
+## Callback ownership and control state
+
+`NativeCallable.listener` is asynchronous: it **cannot synchronously copy**
+borrowed native callback memory before the C caller returns. The production path
+uses no Dart native callback trampoline. Its static C++ callback copies text and
+errors inside the upstream callback, while those pointers are valid.
+
+| Value | Owner and lifetime | Release |
+| --- | --- | --- |
+| Upstream stream chunk/text/error | Borrowed only during the upstream callback | Upstream; bridge never frees it |
+| Bridge operation | Process-wide unique numeric ID in a shared-reference registry | Worker removes it after terminal cleanup/join |
+| Queued event | Native operation queue, at most 64 entries / 1 MiB | Queue deletion or ownership transfer through `take` |
+| Taken event | Dart worker, owned native payload | `lrlm_event_delete` in `finally`, including decoding failure |
+| Input UTF-8 / InputData | Worker through stream-start call | Freed after v0.18.1 synchronously parses/copies inputs and schedules tasks |
+| Settings/config/sampler | Worker during create call | Corresponding native delete in `finally` |
+| Engine / Session / Conversation | Worker handle tables | Children stop/join before parent delete |
+| Native structured history / budget error text | Borrowed synchronous getter, thread-local | Copy immediately before next getter; never posted as pointers |
+
+The queue reserves a terminal slot and never blocks native producer threads.
+Overflow discards queued text, suppresses subsequent text, requests cancellation
+and reports backpressure. During generation, a delivery credit limits messages in flight to the main
+isolate; paused subscriptions do not create an unbounded Dart queue.
+After native final, the remaining finite queue is drained even while the
+subscription is paused; the Dart controller buffers at most that bounded final
+burst so native cleanup never waits for resume. Every operation gets a different ID; delayed callbacks can only find their own
+registry entry. After removal they are ignored without dereferencing callback
+state. A callback already executing holds a shared reference until it returns.
+
+Worker handles move through ready, generating, cancel-requested, closing and
+closed states. Future generation collects the asynchronous stream operation, so
+native generation does not block the control isolate. Same-session overlaps fail
+busy. Cancelling delivery and proving the producer stopped are separate steps:
+
+1. Stop subscriber delivery and mark the operation cancelled.
+2. Request native cancellation; continue draining owned payloads.
+3. On native terminal, delete/join the native handle. Explicit close uses the same
+   cancel/join protocol. Native queues cannot wait for the Dart event loop, so
+   destructor join does not depend on a Dart callback acknowledgement.
+4. Release the operation registry/queued payloads and send one terminal result.
+
+No timeout is used as proof that native threads stopped. v0.18.1 documents
+cancelled native sessions as poisoned; reconstruct Conversations from completed
+structured history (including channels) for retry. Raw sessions reset. On native
+error the handle is also discarded to avoid continuing unknown partial state.
+Parent closure synchronously invalidates surviving Dart children. Isolate
+onExit/onError fail pending requests and streams; this cannot catch native process
+SIGSEGV or restore a crashed Android process.
+
+## Model processing and budget contract
+
+Conversation applies its model template once; its underlying Session template is
+disabled. Native generation and budget rendering receive one message object,
+because v0.18.1 single-turn templates omit array message bodies. Multi-message
+appends rebuild completed history plus the new prefix as an explicit preface;
+the last user object generates the response. Budget previews use a temporary
+native Conversation and do not mutate the live history. Such batches repeat
+prefill, while ordinary one-message sends retain the KV cache.
+
+Encoded PNG/JPEG/WAV blobs are processed by the model-specific native
+processor into tensor inputs; raw Session is reserved for untemplated text.
+The adapter counts the same native rendered/preprocessed inputs, tokenizer/BOS,
+vision patches and audio frames before scheduling inference, and adds the native
+current step plus requested output reserve. It does not approximate Chinese with
+whitespace or silently trim history. Decoder/metadata failures preserve native
+error details. Real Gemma processor/token counts still require Android acceptance.
+
+Benchmark entries may represent multiple prefill chunks per operation. Dart sums
+only newly appended entries and computes token-weighted durations/rates. Unknown
+measurements remain null. Wall TTFT and upstream decode TTFT have different
+origins and are exposed separately. ResourceExhausted alone is not classified OOM.
+
+## Test boundaries
+
+```bash
+tool/test_native.sh
+python3 -m unittest discover -s test/build -v
+```
+
+The C++ test runs under ASan/UBSan and immediately overwrites borrowed buffers.
+The host shared fixture runs the production worker across real FFI/native-thread
+boundaries with explicit barriers, late callbacks, cancellation and allocation
+counters. Its tokenizer/model metadata are deliberate fixtures. Fake Dart tests
+cover API/UI/HTTP flow. Neither fixture nor the fake UI smoke is model inference.
+Use [Android validation](android-validation.md) for real artifact/long-context,
+media, memory, retrieval, background/foreground and cancellation evidence.
