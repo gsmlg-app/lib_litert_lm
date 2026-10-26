@@ -229,3 +229,8 @@ are not valid upgraded-runtime or release acceptance. The ABI verifier also
 rejects those old packaged libraries without `--require-provenance`, proving
 missing exports are independently detected. Release and publication remain
 blocked; no unrun context tier may be described as verified support.
+
+The first hosted CI run also exposed an SDK bootstrap failure: setup-android v3
+defaults to installing the removed `tools` package. All workflows now explicitly
+request `platform-tools`; platform/NDK packages remain separately pinned.
+The hosted workflow result must be checked independently from these local checks.
