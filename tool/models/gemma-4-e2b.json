@@ -1,0 +1,14 @@
+{
+  "modelId": "gemma-4-e2b",
+  "repository": "litert-community/gemma-4-E2B-it-litert-lm",
+  "revision": "1caa527c1e88b55f046fcd8d2b4265606680663d",
+  "filename": "gemma-4-E2B-it.litertlm",
+  "sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+  "bytes": 2588147712,
+  "declaredMaxContextTokens": 32768,
+  "contextSource": "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/blob/1caa527c1e88b55f046fcd8d2b4265606680663d/README.md",
+  "runtimeVersion": "v0.18.1",
+  "runtimeCommit": "bda624851d74be34d4e1f7fac1fc4155939539c7",
+  "validationStatus": "not_run_no_android_device",
+  "verifiedContextTiers": []
+}

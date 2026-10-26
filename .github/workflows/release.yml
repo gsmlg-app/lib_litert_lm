@@ -94,11 +94,17 @@ jobs:
           flutter pub get
           (cd example && flutter pub get)
 
+      - name: Test native bridge and host FFI fixtures
+        run: tool/test_native.sh
+
       - name: Check formatting
         run: dart format --output=none --set-exit-if-changed lib test example/lib example/test
 
       - name: Analyze
         run: flutter analyze
+
+      - name: Test Android artifact verifier
+        run: python3 -m unittest discover -s test/build -v
 
       - name: Run package tests
         run: flutter test
@@ -118,9 +124,20 @@ jobs:
           ACCELERATORS: vulkan,npu
         run: tool/build_litert_lm_android.sh
 
-      - name: Check Android build configuration
+      - name: Verify native build provenance
+        run: python3 tool/verify_android_bundle.py android/src/main/jniLibs/arm64-v8a --require-provenance
+
+      - name: Build Android arm64 APK and AAB
         working-directory: example
-        run: flutter build apk --debug --config-only
+        run: |
+          flutter build apk --release --target-platform android-arm64
+          flutter build appbundle --release --target-platform android-arm64
+
+      - name: Verify packaged native libraries and 16 KiB APK alignment
+        run: |
+          python3 tool/verify_android_bundle.py example/build/app/outputs/flutter-apk/app-release.apk --require-provenance
+          python3 tool/verify_android_bundle.py example/build/app/outputs/bundle/release/app-release.aab --require-provenance
+          echo "Native ABI fixtures and packaging passed. Real-model/device inference was not run by this workflow." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Validate pub package
         run: flutter pub publish --dry-run --ignore-warnings
@@ -141,6 +158,8 @@ jobs:
             .
           tar -czf "dist/release/liblitert_lm-android-arm64-v8a-${VERSION}.tar.gz" \
             -C android/src/main/jniLibs arm64-v8a
+          cp example/build/app/outputs/flutter-apk/app-release.apk dist/release/
+          cp example/build/app/outputs/bundle/release/app-release.aab dist/release/
           (
             cd dist/release
             sha256sum * > SHA256SUMS
@@ -150,7 +169,7 @@ jobs:
         env:
           VERSION: ${{ inputs.version }}
         run: |
-          git add pubspec.yaml example/pubspec.yaml example/pubspec.lock android/src/main/jniLibs/arm64-v8a/*.so
+          git add pubspec.yaml example/pubspec.yaml example/pubspec.lock android/src/main/jniLibs/arm64-v8a/*.so android/src/main/jniLibs/arm64-v8a/native-build.json
           if git diff --cached --quiet; then
             echo "Release files are already current for v${VERSION}."
           else
@@ -166,6 +185,7 @@ jobs:
           gh release create "v${VERSION}" dist/release/* \
             --target "$(git rev-parse HEAD)" \
             --generate-notes \
+            --notes "Native ABI fixtures and Android packaging checks passed. Real-model/device inference was not run by this workflow; example APK/AAB use the existing debug signing configuration." \
             --title "v${VERSION}"
 
       - name: Dispatch pub.dev publish

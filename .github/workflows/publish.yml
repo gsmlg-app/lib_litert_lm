@@ -30,7 +30,7 @@ jobs:
   publish:
     name: Publish lib_litert_lm
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 60
     permissions:
       contents: read
       id-token: write
@@ -107,9 +107,56 @@ jobs:
 
           echo "should_publish=true" >> "$GITHUB_OUTPUT"
 
+      - name: Setup Java
+        if: ${{ steps.published.outputs.should_publish == 'true' }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        if: ${{ steps.published.outputs.should_publish == 'true' }}
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        if: ${{ steps.published.outputs.should_publish == 'true' }}
+        run: |
+          sdkmanager "platform-tools" "platforms;android-36" "ndk;28.2.13676358"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
+
       - name: Install dependencies
         if: ${{ steps.published.outputs.should_publish == 'true' }}
         run: flutter pub get
+
+      - name: Verify native provenance and artifact regressions
+        if: ${{ steps.published.outputs.should_publish == 'true' }}
+        run: |
+          python3 -m unittest discover -s test/build -v
+          python3 tool/verify_android_bundle.py android/src/main/jniLibs/arm64-v8a --require-provenance
+
+      - name: Test native bridge and host FFI fixtures
+        if: ${{ steps.published.outputs.should_publish == 'true' }}
+        run: tool/test_native.sh
+
+      - name: Run package and example tests
+        if: ${{ steps.published.outputs.should_publish == 'true' }}
+        run: |
+          flutter test
+          (cd example && flutter test)
+
+      - name: Build Android arm64 APK and AAB
+        if: ${{ steps.published.outputs.should_publish == 'true' }}
+        working-directory: example
+        run: |
+          flutter build apk --release --target-platform android-arm64
+          flutter build appbundle --release --target-platform android-arm64
+
+      - name: Verify packaged native libraries and 16 KiB APK alignment
+        if: ${{ steps.published.outputs.should_publish == 'true' }}
+        run: |
+          python3 tool/verify_android_bundle.py example/build/app/outputs/flutter-apk/app-release.apk --require-provenance
+          python3 tool/verify_android_bundle.py example/build/app/outputs/bundle/release/app-release.aab --require-provenance
+          echo "Native ABI fixtures and packaging passed. Real-model/device inference was not run by this workflow." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Validate package
         if: ${{ steps.published.outputs.should_publish == 'true' }}

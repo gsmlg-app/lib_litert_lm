@@ -47,6 +47,9 @@ jobs:
           sdkmanager "platform-tools" "platforms;android-36" "ndk;28.2.13676358"
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
 
+      - name: Test Android artifact verifier
+        run: python3 -m unittest discover -s test/build -v
+
       - name: Build native Vulkan/NPU bundle
         env:
           ABI: ${{ inputs.abi }}
@@ -58,5 +61,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: liblitert-lm-android-${{ inputs.abi }}
-          path: android/src/main/jniLibs/${{ inputs.abi }}/*.so
+          path: |
+            android/src/main/jniLibs/${{ inputs.abi }}/*.so
+            android/src/main/jniLibs/${{ inputs.abi }}/native-build.json
           if-no-files-found: error
