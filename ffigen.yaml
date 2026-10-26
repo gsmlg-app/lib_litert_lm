@@ -4,20 +4,23 @@ output: lib/src/bindings/litert_lm_bindings_generated.dart
 headers:
   entry-points:
     - third_party/litert_lm/c/engine.h
+    - third_party/litert_lm/c/conversation.h
+    - third_party/litert_lm/c/model_info.h
+    - third_party/litert_lm/c/error_reporter.h
+    - native/litert_lm_bridge.h
 compiler-opts:
-  - -Ithird_party/litert_lm/c
+  - -Ithird_party/litert_lm
 functions:
   include:
     - litert_lm_.*
+    - lrlm_.*
 structs:
   include:
     - LiteRtLmInputData
     - LiteRtLmSamplerParams
 enums:
   include:
-    - LiteRtLmInputDataType
-    - LiteRtLmSamplerType
-    - LiteRtLmTokenUnionType
+    - LiteRtLm.*
 typedefs:
   include:
     - LiteRtLm.*
@@ -31,3 +34,12 @@ comments:
   style: any
   length: brief
 silence-enum-warning: true
+macros:
+  exclude:
+    - .*
+unions:
+  exclude:
+    - .*
+globals:
+  exclude:
+    - .*

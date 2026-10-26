@@ -18,6 +18,8 @@ final class LiteRtLmOpenAiServerConfig {
   final LiteRtLmGenerationParams defaultParams;
 }
 
+/// Text HTTP adapter. Each chat request creates a fresh Conversation; clients
+/// must submit the complete message history for every request.
 final class LiteRtLmOpenAiServer {
   LiteRtLmOpenAiServer({
     required LiteRtLmEngine engine,
@@ -29,6 +31,9 @@ final class LiteRtLmOpenAiServer {
   final LiteRtLmEngine _engine;
   final LiteRtLmOpenAiServerConfig _config;
   HttpServer? _server;
+  Future<void>? _closing;
+  final _requests = <Future<void>>{};
+  final _activeCancels = <Object, Future<void> Function()>{};
 
   Uri? get uri {
     final server = _server;
@@ -43,6 +48,8 @@ final class LiteRtLmOpenAiServer {
     Object address = '127.0.0.1',
     int port = 8080,
   }) async {
+    await _closing;
+    _closing = null;
     if (_server != null) {
       return LiteRtLmOk(this);
     }
@@ -59,16 +66,53 @@ final class LiteRtLmOpenAiServer {
     }
   }
 
-  Future<void> close({bool force = true}) async {
+  Future<void> close({bool force = true}) => _closing ??= _close(force);
+
+  Future<void> _close(bool force) async {
     final server = _server;
     _server = null;
+    await Future.wait(_activeCancels.values.toList().map((cancel) => cancel()));
     await server?.close(force: force);
+    await Future.wait(_requests.toList());
   }
 
   Future<void> _serve(HttpServer server) async {
     await for (final request in server) {
-      unawaited(_handle(request));
+      late Future<void> pending;
+      pending = _serveRequest(
+        request,
+      ).whenComplete(() => _requests.remove(pending));
+      _requests.add(pending);
+      unawaited(pending);
     }
+  }
+
+  Future<void> _serveRequest(HttpRequest request) async {
+    try {
+      await _handle(request);
+    } on SocketException {
+      // The client disconnected; generation cleanup runs in the handler's finally.
+    } on HttpException {
+      // A closed HTTP connection cannot receive an API error response.
+    }
+  }
+
+  void _trackGeneration(
+    Object handle,
+    HttpResponse response,
+    Future<void> Function() cancel,
+  ) {
+    _activeCancels[handle] = cancel;
+    if (_closing != null) unawaited(cancel());
+    unawaited(
+      response.done.then<void>(
+        (_) {},
+        onError: (Object error, StackTrace stack) async {
+          // Response completion reports disconnected clients even between token writes.
+          if (_activeCancels.containsKey(handle)) await cancel();
+        },
+      ),
+    );
   }
 
   Future<void> _handle(HttpRequest request) async {
@@ -109,6 +153,10 @@ final class LiteRtLmOpenAiServer {
           'Unknown endpoint: ${request.method} $path',
         );
       }
+    } on SocketException {
+      rethrow;
+    } on HttpException {
+      rethrow;
     } catch (error) {
       await _writeError(
         request,
@@ -173,19 +221,20 @@ final class LiteRtLmOpenAiServer {
       return;
     }
 
-    final prompt = _promptFromMessages(messages);
+    final prompt = _messagesFromRequest(messages);
     if (prompt == null) {
       await _writeError(
         request,
         HttpStatus.badRequest,
         'invalid_request_error',
-        'Only text message content is supported',
+        'Messages require supported system/user/assistant roles and text content',
         param: 'messages',
       );
       return;
     }
 
-    final params = _paramsFromRequest(body);
+    final params = await _paramsFromRequest(request, body);
+    if (params == null) return;
     final stream = body['stream'] == true;
     if (stream) {
       await _streamChatCompletion(request, prompt, params);
@@ -218,13 +267,14 @@ final class LiteRtLmOpenAiServer {
         request,
         HttpStatus.badRequest,
         'invalid_request_error',
-        '`prompt` must be a string or array of strings',
+        '`prompt` must be a string or an array containing exactly one string',
         param: 'prompt',
       );
       return;
     }
 
-    final params = _paramsFromRequest(body);
+    final params = await _paramsFromRequest(request, body);
+    if (params == null) return;
     final stream = body['stream'] == true;
     if (stream) {
       await _streamCompletion(request, prompt, params);
@@ -235,20 +285,22 @@ final class LiteRtLmOpenAiServer {
 
   Future<void> _completeChatCompletion(
     HttpRequest request,
-    String prompt,
+    List<LiteRtLmMessage> prompt,
     LiteRtLmGenerationParams params,
   ) async {
     final created = _unixSeconds();
     final id = _nextId('chatcmpl');
-    final sessionResult = await _engine.createSession(params: params);
+    final sessionResult = await _engine.createConversation(params: params);
     final session = sessionResult.valueOrNull;
     if (session == null) {
       await _writeFailure(request, sessionResult.errorOrNull);
       return;
     }
 
+    _trackGeneration(session, request.response, session.cancel);
     try {
-      final generated = await session.generate(prompt);
+      if (_closing != null) return;
+      final generated = await session.sendMessages(prompt);
       final text = generated.valueOrNull;
       if (text == null) {
         await _writeFailure(request, generated.errorOrNull);
@@ -266,9 +318,10 @@ final class LiteRtLmOpenAiServer {
             'finish_reason': 'stop',
           },
         ],
-        'usage': _usage(prompt, text),
+        'usage': _usage((await session.getMetrics()).valueOrNull),
       });
     } finally {
+      _activeCancels.remove(session);
       await session.dispose();
     }
   }
@@ -287,7 +340,9 @@ final class LiteRtLmOpenAiServer {
       return;
     }
 
+    _trackGeneration(session, request.response, session.cancel);
     try {
+      if (_closing != null) return;
       final generated = await session.generate(prompt);
       final text = generated.valueOrNull;
       if (text == null) {
@@ -307,30 +362,33 @@ final class LiteRtLmOpenAiServer {
             'finish_reason': 'stop',
           },
         ],
-        'usage': _usage(prompt, text),
+        'usage': _usage((await session.getMetrics()).valueOrNull),
       });
     } finally {
+      _activeCancels.remove(session);
       await session.dispose();
     }
   }
 
   Future<void> _streamChatCompletion(
     HttpRequest request,
-    String prompt,
+    List<LiteRtLmMessage> prompt,
     LiteRtLmGenerationParams params,
   ) async {
     final created = _unixSeconds();
     final id = _nextId('chatcmpl');
-    final sessionResult = await _engine.createSession(params: params);
+    final sessionResult = await _engine.createConversation(params: params);
     final session = sessionResult.valueOrNull;
     if (session == null) {
       await _writeFailure(request, sessionResult.errorOrNull);
       return;
     }
 
-    final response = request.response;
-    _prepareSse(response);
+    _trackGeneration(session, request.response, session.cancel);
+    Socket? output;
     try {
+      final response = await _prepareSse(request.response, session.cancel);
+      output = response;
       await _writeSse(
         response,
         _chatChunk(id, created, _config.modelId, <String, Object?>{
@@ -338,7 +396,8 @@ final class LiteRtLmOpenAiServer {
         }),
       );
 
-      await for (final event in session.generateStream(prompt)) {
+      if (_closing != null) return;
+      await for (final event in session.sendMessagesStream(prompt)) {
         switch (event) {
           case LiteRtLmToken(:final text):
             await _writeSse(
@@ -365,11 +424,25 @@ final class LiteRtLmOpenAiServer {
 
       await _writeSse(response, _chatStopChunk(id, created, _config.modelId));
       await _writeSseDone(response);
-    } catch (_) {
+    } on SocketException {
       await session.cancel();
+    } on HttpException {
+      await session.cancel();
+    } catch (error) {
+      await session.cancel();
+      if (output == null) rethrow;
+      await _writeSseError(
+        output,
+        LiteRtLmGenerationFailure('Streaming request failed: $error'),
+      );
     } finally {
+      _activeCancels.remove(session);
       await session.dispose();
-      await response.close();
+      try {
+        await output?.close();
+      } finally {
+        output?.destroy();
+      }
     }
   }
 
@@ -387,9 +460,12 @@ final class LiteRtLmOpenAiServer {
       return;
     }
 
-    final response = request.response;
-    _prepareSse(response);
+    _trackGeneration(session, request.response, session.cancel);
+    Socket? output;
     try {
+      final response = await _prepareSse(request.response, session.cancel);
+      output = response;
+      if (_closing != null) return;
       await for (final event in session.generateStream(prompt)) {
         switch (event) {
           case LiteRtLmToken(:final text):
@@ -418,11 +494,25 @@ final class LiteRtLmOpenAiServer {
         _completionStopChunk(id, created, _config.modelId),
       );
       await _writeSseDone(response);
-    } catch (_) {
+    } on SocketException {
       await session.cancel();
+    } on HttpException {
+      await session.cancel();
+    } catch (error) {
+      await session.cancel();
+      if (output == null) rethrow;
+      await _writeSseError(
+        output,
+        LiteRtLmGenerationFailure('Streaming request failed: $error'),
+      );
     } finally {
+      _activeCancels.remove(session);
       await session.dispose();
-      await response.close();
+      try {
+        await output?.close();
+      } finally {
+        output?.destroy();
+      }
     }
   }
 
@@ -436,7 +526,7 @@ final class LiteRtLmOpenAiServer {
     Map<String, Object?> body,
   ) async {
     final n = body['n'];
-    if (n == null || n == 1) {
+    if (!body.containsKey('n') || (n is int && n == 1)) {
       return true;
     }
     await _writeError(
@@ -449,16 +539,74 @@ final class LiteRtLmOpenAiServer {
     return false;
   }
 
-  LiteRtLmGenerationParams _paramsFromRequest(Map<String, Object?> body) {
+  Future<LiteRtLmGenerationParams?> _paramsFromRequest(
+    HttpRequest request,
+    Map<String, Object?> body,
+  ) async {
+    final supported = {
+      'model',
+      if (request.uri.path == '/v1/chat/completions') 'messages' else 'prompt',
+      'stream',
+      'n',
+      'temperature',
+      'top_k',
+      'topK',
+      'max_tokens',
+      'maxTokens',
+      'seed',
+      'apply_prompt_template',
+    };
+    String? invalid;
+    for (final key in body.keys) {
+      if (!supported.contains(key)) {
+        invalid = key;
+        break;
+      }
+    }
+    if (invalid == null &&
+        body.containsKey('stream') &&
+        body['stream'] is! bool) {
+      invalid = 'stream';
+    }
+    if (invalid == null &&
+        body.containsKey('apply_prompt_template') &&
+        (body['apply_prompt_template'] is! bool ||
+            (request.uri.path == '/v1/chat/completions' &&
+                body['apply_prompt_template'] == false))) {
+      invalid = 'apply_prompt_template';
+    }
+    for (final key in ['top_k', 'topK', 'max_tokens', 'maxTokens', 'seed']) {
+      if (body.containsKey(key) &&
+          (body[key] is! int ||
+              (body[key] as int) > 2147483647 ||
+              (body[key] as int) < (key == 'seed' ? -2147483648 : 1))) {
+        invalid ??= key;
+      }
+    }
+    final temperature = body['temperature'];
+    if (body.containsKey('temperature') &&
+        (temperature is! num || !temperature.isFinite || temperature < 0)) {
+      invalid ??= 'temperature';
+    }
+    if (invalid != null) {
+      await _writeError(
+        request,
+        HttpStatus.badRequest,
+        'invalid_request_error',
+        'Unsupported or invalid parameter: $invalid',
+        param: invalid,
+      );
+      return null;
+    }
     final defaults = _config.defaultParams;
     return LiteRtLmGenerationParams(
-      temperature: _number(body['temperature']) ?? defaults.temperature,
-      topK: _integer(body['top_k']) ?? _integer(body['topK']) ?? defaults.topK,
+      temperature: (temperature as num?)?.toDouble() ?? defaults.temperature,
+      topK: body['top_k'] as int? ?? body['topK'] as int? ?? defaults.topK,
       maxTokens:
-          _integer(body['max_tokens']) ??
-          _integer(body['maxTokens']) ??
+          body['max_tokens'] as int? ??
+          body['maxTokens'] as int? ??
           defaults.maxTokens,
-      seed: _integer(body['seed']) ?? defaults.seed,
+      seed: body['seed'] as int? ?? defaults.seed,
       applyPromptTemplate:
           body['apply_prompt_template'] as bool? ??
           defaults.applyPromptTemplate,
@@ -496,6 +644,12 @@ final class LiteRtLmOpenAiServer {
       LiteRtLmCancelled() => HttpStatus.badRequest,
       LiteRtLmGenerationFailure() => HttpStatus.internalServerError,
       LiteRtLmNativeInitFailure() => HttpStatus.internalServerError,
+      LiteRtLmBusy() => HttpStatus.conflict,
+      LiteRtLmContextFull() => HttpStatus.badRequest,
+      LiteRtLmInvalidArgument() => HttpStatus.badRequest,
+      LiteRtLmUnsupported() => HttpStatus.badRequest,
+      LiteRtLmWorkerFailure() => HttpStatus.internalServerError,
+      LiteRtLmBackpressure() => HttpStatus.serviceUnavailable,
     };
     return _writeError(request, status, error.code, error.message);
   }
@@ -511,99 +665,57 @@ String _nextId(String prefix) {
 int _unixSeconds() => DateTime.now().millisecondsSinceEpoch ~/ 1000;
 
 String? _completionPrompt(Object? prompt) {
-  if (prompt is String) {
-    return prompt;
-  }
-  if (prompt is List && prompt.every((item) => item is String)) {
-    return prompt.cast<String>().join('\n');
+  if (prompt is String) return prompt;
+  if (prompt is List && prompt.length == 1 && prompt.single is String) {
+    return prompt.single as String;
   }
   return null;
 }
 
-String? _promptFromMessages(List<Object?> messages) {
-  final buffer = StringBuffer();
+List<LiteRtLmMessage>? _messagesFromRequest(List<Object?> messages) {
+  if (messages.isEmpty) return null;
+  final result = <LiteRtLmMessage>[];
   for (final message in messages) {
-    if (message is! Map) {
+    if (message is! Map ||
+        message.keys.any((key) => key != 'role' && key != 'content')) {
       return null;
     }
-    final role = message['role'] as String? ?? 'user';
-    final content = _contentText(message['content']);
-    if (content == null) {
+    final role = message['role'];
+    if (role is! String ||
+        !const ['system', 'user', 'assistant'].contains(role)) {
       return null;
     }
-    if (content.isEmpty) {
-      continue;
+    final content = message['content'];
+    final contents = <LiteRtLmContent>[];
+    if (content is String) {
+      contents.add(LiteRtLmContent.text(content));
+    } else if (content is List) {
+      for (final part in content) {
+        if (part is! Map ||
+            part['type'] != 'text' ||
+            part['text'] is! String ||
+            part.keys.any((key) => key != 'type' && key != 'text')) {
+          return null;
+        }
+        contents.add(LiteRtLmContent.text(part['text'] as String));
+      }
+    } else {
+      return null;
     }
-    buffer
-      ..write(role.toUpperCase())
-      ..write(': ')
-      ..writeln(content);
+    result.add(LiteRtLmMessage(role: role, contents: contents));
   }
-  buffer.write('ASSISTANT: ');
-  return buffer.toString();
+  return result;
 }
 
-String? _contentText(Object? content) {
-  if (content == null) {
-    return '';
-  }
-  if (content is String) {
-    return content;
-  }
-  if (content is List) {
-    final parts = <String>[];
-    for (final part in content) {
-      if (part is! Map) {
-        return null;
-      }
-      final type = part['type'];
-      if (type != 'text') {
-        return null;
-      }
-      final text = part['text'];
-      if (text is! String) {
-        return null;
-      }
-      parts.add(text);
-    }
-    return parts.join('\n');
-  }
-  return null;
-}
-
-double? _number(Object? value) {
-  if (value is num) {
-    return value.toDouble();
-  }
-  return null;
-}
-
-int? _integer(Object? value) {
-  if (value is int) {
-    return value;
-  }
-  if (value is num) {
-    return value.toInt();
-  }
-  return null;
-}
-
-Map<String, Object?> _usage(String prompt, String completion) {
-  final promptTokens = _roughTokenCount(prompt);
-  final completionTokens = _roughTokenCount(completion);
-  return <String, Object?>{
+Map<String, Object?>? _usage(LiteRtLmMetrics? metrics) {
+  final promptTokens = metrics?.prefillTokens;
+  final completionTokens = metrics?.decodeTokens;
+  if (promptTokens == null || completionTokens == null) return null;
+  return {
     'prompt_tokens': promptTokens,
     'completion_tokens': completionTokens,
     'total_tokens': promptTokens + completionTokens,
   };
-}
-
-int _roughTokenCount(String text) {
-  final trimmed = text.trim();
-  if (trimmed.isEmpty) {
-    return 0;
-  }
-  return trimmed.split(RegExp(r'\s+')).length;
 }
 
 Map<String, Object?> _chatChunk(
@@ -692,11 +804,25 @@ void _addCorsHeaders(HttpResponse response) {
     );
 }
 
-void _prepareSse(HttpResponse response) {
+Future<Socket> _prepareSse(
+  HttpResponse response,
+  Future<void> Function() cancel,
+) async {
   response.headers
     ..set(HttpHeaders.contentTypeHeader, 'text/event-stream; charset=utf-8')
     ..set(HttpHeaders.cacheControlHeader, 'no-cache')
-    ..set('X-Accel-Buffering', 'no');
+    ..set('X-Accel-Buffering', 'no')
+    ..chunkedTransferEncoding = false;
+  // HttpResponse suppresses peer socket errors. A detached connection exposes
+  // EOF immediately, including while native inference is waiting for a token.
+  response.persistentConnection = false;
+  final socket = await response.detachSocket();
+  socket.listen(
+    (_) {},
+    onDone: () => unawaited(cancel()),
+    onError: (Object error) => unawaited(cancel()),
+  );
+  return socket;
 }
 
 Future<void> _writeJson(HttpResponse response, Object value) async {
@@ -723,17 +849,17 @@ Future<void> _writeError(
   });
 }
 
-Future<void> _writeSse(HttpResponse response, Object value) async {
+Future<void> _writeSse(IOSink response, Object value) async {
   response.add(utf8.encode('data: ${jsonEncode(value)}\n\n'));
   await response.flush();
 }
 
-Future<void> _writeSseDone(HttpResponse response) async {
+Future<void> _writeSseDone(IOSink response) async {
   response.add(utf8.encode('data: [DONE]\n\n'));
   await response.flush();
 }
 
-Future<void> _writeSseError(HttpResponse response, LiteRtLmFailure error) {
+Future<void> _writeSseError(IOSink response, LiteRtLmFailure error) {
   return _writeSse(response, <String, Object?>{
     'error': <String, Object?>{
       'message': error.message,

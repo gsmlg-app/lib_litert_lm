@@ -25,6 +25,118 @@ class LiteRtLmBindings {
     ffi.Pointer<T> Function<T extends ffi.NativeType>(String symbolName) lookup,
   ) : _lookup = lookup;
 
+  /// Creates LiteRT LM Sampler Parameters with a specific sampler type. The
+  /// caller is responsible for destroying the parameters using
+  /// `litert_lm_sampler_params_delete`.
+  ffi.Pointer<LiteRtLmSamplerParams> litert_lm_sampler_params_create(
+    LiteRtLmSamplerType type,
+  ) {
+    return _litert_lm_sampler_params_create(type.value);
+  }
+
+  late final _litert_lm_sampler_params_createPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<LiteRtLmSamplerParams> Function(ffi.UnsignedInt)
+        >
+      >('litert_lm_sampler_params_create');
+  late final _litert_lm_sampler_params_create =
+      _litert_lm_sampler_params_createPtr
+          .asFunction<ffi.Pointer<LiteRtLmSamplerParams> Function(int)>();
+
+  /// Destroys LiteRT LM Sampler Parameters.
+  void litert_lm_sampler_params_delete(
+    ffi.Pointer<LiteRtLmSamplerParams> params,
+  ) {
+    return _litert_lm_sampler_params_delete(params);
+  }
+
+  late final _litert_lm_sampler_params_deletePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmSamplerParams>)
+        >
+      >('litert_lm_sampler_params_delete');
+  late final _litert_lm_sampler_params_delete =
+      _litert_lm_sampler_params_deletePtr
+          .asFunction<void Function(ffi.Pointer<LiteRtLmSamplerParams>)>();
+
+  /// Sets the top-k value.
+  void litert_lm_sampler_params_set_top_k(
+    ffi.Pointer<LiteRtLmSamplerParams> params,
+    int top_k,
+  ) {
+    return _litert_lm_sampler_params_set_top_k(params, top_k);
+  }
+
+  late final _litert_lm_sampler_params_set_top_kPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmSamplerParams>, ffi.Int32)
+        >
+      >('litert_lm_sampler_params_set_top_k');
+  late final _litert_lm_sampler_params_set_top_k =
+      _litert_lm_sampler_params_set_top_kPtr
+          .asFunction<void Function(ffi.Pointer<LiteRtLmSamplerParams>, int)>();
+
+  /// Sets the top-p value.
+  void litert_lm_sampler_params_set_top_p(
+    ffi.Pointer<LiteRtLmSamplerParams> params,
+    double top_p,
+  ) {
+    return _litert_lm_sampler_params_set_top_p(params, top_p);
+  }
+
+  late final _litert_lm_sampler_params_set_top_pPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmSamplerParams>, ffi.Float)
+        >
+      >('litert_lm_sampler_params_set_top_p');
+  late final _litert_lm_sampler_params_set_top_p =
+      _litert_lm_sampler_params_set_top_pPtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmSamplerParams>, double)
+          >();
+
+  /// Sets the temperature.
+  void litert_lm_sampler_params_set_temperature(
+    ffi.Pointer<LiteRtLmSamplerParams> params,
+    double temperature,
+  ) {
+    return _litert_lm_sampler_params_set_temperature(params, temperature);
+  }
+
+  late final _litert_lm_sampler_params_set_temperaturePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmSamplerParams>, ffi.Float)
+        >
+      >('litert_lm_sampler_params_set_temperature');
+  late final _litert_lm_sampler_params_set_temperature =
+      _litert_lm_sampler_params_set_temperaturePtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmSamplerParams>, double)
+          >();
+
+  /// Sets the seed.
+  void litert_lm_sampler_params_set_seed(
+    ffi.Pointer<LiteRtLmSamplerParams> params,
+    int seed,
+  ) {
+    return _litert_lm_sampler_params_set_seed(params, seed);
+  }
+
+  late final _litert_lm_sampler_params_set_seedPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmSamplerParams>, ffi.Int32)
+        >
+      >('litert_lm_sampler_params_set_seed');
+  late final _litert_lm_sampler_params_set_seed =
+      _litert_lm_sampler_params_set_seedPtr
+          .asFunction<void Function(ffi.Pointer<LiteRtLmSamplerParams>, int)>();
+
   /// Creates a LiteRT LM Session Config. The caller is responsible for
   /// destroying the config using `litert_lm_session_config_delete`.
   ffi.Pointer<LiteRtLmSessionConfig> litert_lm_session_config_create() {
@@ -40,6 +152,8 @@ class LiteRtLmBindings {
           .asFunction<ffi.Pointer<LiteRtLmSessionConfig> Function()>();
 
   /// Sets the maximum number of output tokens per decode step for this session.
+  /// For thinking models, both thinking (reasoning) tokens and the final
+  /// response tokens count towards this limit.
   void litert_lm_session_config_set_max_output_tokens(
     ffi.Pointer<LiteRtLmSessionConfig> config,
     int max_output_tokens,
@@ -79,6 +193,29 @@ class LiteRtLmBindings {
       >('litert_lm_session_config_set_apply_prompt_template');
   late final _litert_lm_session_config_set_apply_prompt_template =
       _litert_lm_session_config_set_apply_prompt_templatePtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmSessionConfig>, bool)
+          >();
+
+  /// Sets whether to enable speculative decoding for this session.
+  void litert_lm_session_config_set_enable_speculative_decoding(
+    ffi.Pointer<LiteRtLmSessionConfig> config,
+    bool enable_speculative_decoding,
+  ) {
+    return _litert_lm_session_config_set_enable_speculative_decoding(
+      config,
+      enable_speculative_decoding,
+    );
+  }
+
+  late final _litert_lm_session_config_set_enable_speculative_decodingPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmSessionConfig>, ffi.Bool)
+        >
+      >('litert_lm_session_config_set_enable_speculative_decoding');
+  late final _litert_lm_session_config_set_enable_speculative_decoding =
+      _litert_lm_session_config_set_enable_speculative_decodingPtr
           .asFunction<
             void Function(ffi.Pointer<LiteRtLmSessionConfig>, bool)
           >();
@@ -126,302 +263,402 @@ class LiteRtLmBindings {
       _litert_lm_session_config_deletePtr
           .asFunction<void Function(ffi.Pointer<LiteRtLmSessionConfig>)>();
 
-  /// Creates a LiteRT LM Conversation Config. The caller is responsible for
-  /// destroying the config using `litert_lm_conversation_config_delete`.
-  ffi.Pointer<LiteRtLmConversationConfig>
-  litert_lm_conversation_config_create() {
-    return _litert_lm_conversation_config_create();
-  }
-
-  late final _litert_lm_conversation_config_createPtr =
-      _lookup<
-        ffi.NativeFunction<ffi.Pointer<LiteRtLmConversationConfig> Function()>
-      >('litert_lm_conversation_config_create');
-  late final _litert_lm_conversation_config_create =
-      _litert_lm_conversation_config_createPtr
-          .asFunction<ffi.Pointer<LiteRtLmConversationConfig> Function()>();
-
-  /// Sets the session config for this conversation config.
-  void litert_lm_conversation_config_set_session_config(
-    ffi.Pointer<LiteRtLmConversationConfig> config,
-    ffi.Pointer<LiteRtLmSessionConfig> session_config,
+  /// Sets the path to the LoRA weights file.
+  int litert_lm_session_config_set_lora_path(
+    ffi.Pointer<LiteRtLmSessionConfig> config,
+    ffi.Pointer<ffi.Char> lora_path,
   ) {
-    return _litert_lm_conversation_config_set_session_config(
-      config,
-      session_config,
-    );
+    return _litert_lm_session_config_set_lora_path(config, lora_path);
   }
 
-  late final _litert_lm_conversation_config_set_session_configPtr =
+  late final _litert_lm_session_config_set_lora_pathPtr =
       _lookup<
         ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Pointer<LiteRtLmConversationConfig>,
+          ffi.Int Function(
             ffi.Pointer<LiteRtLmSessionConfig>,
+            ffi.Pointer<ffi.Char>,
           )
         >
-      >('litert_lm_conversation_config_set_session_config');
-  late final _litert_lm_conversation_config_set_session_config =
-      _litert_lm_conversation_config_set_session_configPtr
+      >('litert_lm_session_config_set_lora_path');
+  late final _litert_lm_session_config_set_lora_path =
+      _litert_lm_session_config_set_lora_pathPtr
           .asFunction<
-            void Function(
-              ffi.Pointer<LiteRtLmConversationConfig>,
+            int Function(
               ffi.Pointer<LiteRtLmSessionConfig>,
-            )
-          >();
-
-  /// Sets the system message for this conversation config.
-  void litert_lm_conversation_config_set_system_message(
-    ffi.Pointer<LiteRtLmConversationConfig> config,
-    ffi.Pointer<ffi.Char> system_message_json,
-  ) {
-    return _litert_lm_conversation_config_set_system_message(
-      config,
-      system_message_json,
-    );
-  }
-
-  late final _litert_lm_conversation_config_set_system_messagePtr =
-      _lookup<
-        ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Pointer<LiteRtLmConversationConfig>,
-            ffi.Pointer<ffi.Char>,
-          )
-        >
-      >('litert_lm_conversation_config_set_system_message');
-  late final _litert_lm_conversation_config_set_system_message =
-      _litert_lm_conversation_config_set_system_messagePtr
-          .asFunction<
-            void Function(
-              ffi.Pointer<LiteRtLmConversationConfig>,
               ffi.Pointer<ffi.Char>,
             )
           >();
 
-  /// Sets the tools for this conversation config.
-  void litert_lm_conversation_config_set_tools(
-    ffi.Pointer<LiteRtLmConversationConfig> config,
-    ffi.Pointer<ffi.Char> tools_json,
+  /// Sets the path to the Audio LoRA weights file.
+  int litert_lm_session_config_set_audio_lora_path(
+    ffi.Pointer<LiteRtLmSessionConfig> config,
+    ffi.Pointer<ffi.Char> audio_lora_path,
   ) {
-    return _litert_lm_conversation_config_set_tools(config, tools_json);
+    return _litert_lm_session_config_set_audio_lora_path(
+      config,
+      audio_lora_path,
+    );
   }
 
-  late final _litert_lm_conversation_config_set_toolsPtr =
+  late final _litert_lm_session_config_set_audio_lora_pathPtr =
       _lookup<
         ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Pointer<LiteRtLmConversationConfig>,
+          ffi.Int Function(
+            ffi.Pointer<LiteRtLmSessionConfig>,
             ffi.Pointer<ffi.Char>,
           )
         >
-      >('litert_lm_conversation_config_set_tools');
-  late final _litert_lm_conversation_config_set_tools =
-      _litert_lm_conversation_config_set_toolsPtr
+      >('litert_lm_session_config_set_audio_lora_path');
+  late final _litert_lm_session_config_set_audio_lora_path =
+      _litert_lm_session_config_set_audio_lora_pathPtr
           .asFunction<
-            void Function(
-              ffi.Pointer<LiteRtLmConversationConfig>,
+            int Function(
+              ffi.Pointer<LiteRtLmSessionConfig>,
               ffi.Pointer<ffi.Char>,
             )
           >();
 
-  /// Sets the initial messages for this conversation config.
-  void litert_lm_conversation_config_set_messages(
-    ffi.Pointer<LiteRtLmConversationConfig> config,
-    ffi.Pointer<ffi.Char> messages_json,
-  ) {
-    return _litert_lm_conversation_config_set_messages(config, messages_json);
+  /// Creates a LiteRT LM Repetition Penalty Config with default values
+  /// (`repetition_penalty` = 1.0f, `presence_penalty` = 0.0f,
+  /// `frequency_penalty` = 0.0f, `window_size` = 0, which means all history
+  /// with no penalties active).
+  ffi.Pointer<LiteRtLmRepetitionPenaltyConfig>
+  litert_lm_repetition_penalty_config_create() {
+    return _litert_lm_repetition_penalty_config_create();
   }
 
-  late final _litert_lm_conversation_config_set_messagesPtr =
+  late final _litert_lm_repetition_penalty_config_createPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<LiteRtLmRepetitionPenaltyConfig> Function()
+        >
+      >('litert_lm_repetition_penalty_config_create');
+  late final _litert_lm_repetition_penalty_config_create =
+      _litert_lm_repetition_penalty_config_createPtr
+          .asFunction<
+            ffi.Pointer<LiteRtLmRepetitionPenaltyConfig> Function()
+          >();
+
+  /// Destroys a LiteRT LM Repetition Penalty Config.
+  void litert_lm_repetition_penalty_config_delete(
+    ffi.Pointer<LiteRtLmRepetitionPenaltyConfig> config,
+  ) {
+    return _litert_lm_repetition_penalty_config_delete(config);
+  }
+
+  late final _litert_lm_repetition_penalty_config_deletePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmRepetitionPenaltyConfig>)
+        >
+      >('litert_lm_repetition_penalty_config_delete');
+  late final _litert_lm_repetition_penalty_config_delete =
+      _litert_lm_repetition_penalty_config_deletePtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmRepetitionPenaltyConfig>)
+          >();
+
+  /// Sets the multiplicative repetition penalty for the repetition penalty
+  /// config.
+  void litert_lm_repetition_penalty_config_set_repetition_penalty(
+    ffi.Pointer<LiteRtLmRepetitionPenaltyConfig> config,
+    double repetition_penalty,
+  ) {
+    return _litert_lm_repetition_penalty_config_set_repetition_penalty(
+      config,
+      repetition_penalty,
+    );
+  }
+
+  late final _litert_lm_repetition_penalty_config_set_repetition_penaltyPtr =
       _lookup<
         ffi.NativeFunction<
           ffi.Void Function(
-            ffi.Pointer<LiteRtLmConversationConfig>,
-            ffi.Pointer<ffi.Char>,
+            ffi.Pointer<LiteRtLmRepetitionPenaltyConfig>,
+            ffi.Float,
           )
         >
-      >('litert_lm_conversation_config_set_messages');
-  late final _litert_lm_conversation_config_set_messages =
-      _litert_lm_conversation_config_set_messagesPtr
+      >('litert_lm_repetition_penalty_config_set_repetition_penalty');
+  late final _litert_lm_repetition_penalty_config_set_repetition_penalty =
+      _litert_lm_repetition_penalty_config_set_repetition_penaltyPtr
           .asFunction<
-            void Function(
-              ffi.Pointer<LiteRtLmConversationConfig>,
-              ffi.Pointer<ffi.Char>,
-            )
+            void Function(ffi.Pointer<LiteRtLmRepetitionPenaltyConfig>, double)
           >();
 
-  /// Sets the extra context for the conversation preface.
-  void litert_lm_conversation_config_set_extra_context(
-    ffi.Pointer<LiteRtLmConversationConfig> config,
-    ffi.Pointer<ffi.Char> extra_context_json,
+  /// Sets the subtractive presence penalty for the repetition penalty config.
+  void litert_lm_repetition_penalty_config_set_presence_penalty(
+    ffi.Pointer<LiteRtLmRepetitionPenaltyConfig> config,
+    double presence_penalty,
   ) {
-    return _litert_lm_conversation_config_set_extra_context(
+    return _litert_lm_repetition_penalty_config_set_presence_penalty(
       config,
-      extra_context_json,
+      presence_penalty,
     );
   }
 
-  late final _litert_lm_conversation_config_set_extra_contextPtr =
+  late final _litert_lm_repetition_penalty_config_set_presence_penaltyPtr =
       _lookup<
         ffi.NativeFunction<
           ffi.Void Function(
-            ffi.Pointer<LiteRtLmConversationConfig>,
-            ffi.Pointer<ffi.Char>,
+            ffi.Pointer<LiteRtLmRepetitionPenaltyConfig>,
+            ffi.Float,
           )
         >
-      >('litert_lm_conversation_config_set_extra_context');
-  late final _litert_lm_conversation_config_set_extra_context =
-      _litert_lm_conversation_config_set_extra_contextPtr
+      >('litert_lm_repetition_penalty_config_set_presence_penalty');
+  late final _litert_lm_repetition_penalty_config_set_presence_penalty =
+      _litert_lm_repetition_penalty_config_set_presence_penaltyPtr
           .asFunction<
-            void Function(
-              ffi.Pointer<LiteRtLmConversationConfig>,
-              ffi.Pointer<ffi.Char>,
-            )
+            void Function(ffi.Pointer<LiteRtLmRepetitionPenaltyConfig>, double)
           >();
 
-  /// Sets whether to enable constrained decoding for this conversation config.
-  void litert_lm_conversation_config_set_enable_constrained_decoding(
-    ffi.Pointer<LiteRtLmConversationConfig> config,
-    bool enable_constrained_decoding,
+  /// Sets the subtractive frequency penalty for the repetition penalty config.
+  void litert_lm_repetition_penalty_config_set_frequency_penalty(
+    ffi.Pointer<LiteRtLmRepetitionPenaltyConfig> config,
+    double frequency_penalty,
   ) {
-    return _litert_lm_conversation_config_set_enable_constrained_decoding(
+    return _litert_lm_repetition_penalty_config_set_frequency_penalty(
       config,
-      enable_constrained_decoding,
+      frequency_penalty,
     );
   }
 
-  late final _litert_lm_conversation_config_set_enable_constrained_decodingPtr =
-      _lookup<
-        ffi.NativeFunction<
-          ffi.Void Function(ffi.Pointer<LiteRtLmConversationConfig>, ffi.Bool)
-        >
-      >('litert_lm_conversation_config_set_enable_constrained_decoding');
-  late final _litert_lm_conversation_config_set_enable_constrained_decoding =
-      _litert_lm_conversation_config_set_enable_constrained_decodingPtr
-          .asFunction<
-            void Function(ffi.Pointer<LiteRtLmConversationConfig>, bool)
-          >();
-
-  /// Sets whether to filter channel content from the KV cache.
-  void litert_lm_conversation_config_set_filter_channel_content_from_kv_cache(
-    ffi.Pointer<LiteRtLmConversationConfig> config,
-    bool filter_channel_content_from_kv_cache,
-  ) {
-    return _litert_lm_conversation_config_set_filter_channel_content_from_kv_cache(
-      config,
-      filter_channel_content_from_kv_cache,
-    );
-  }
-
-  late final _litert_lm_conversation_config_set_filter_channel_content_from_kv_cachePtr =
-      _lookup<
-        ffi.NativeFunction<
-          ffi.Void Function(ffi.Pointer<LiteRtLmConversationConfig>, ffi.Bool)
-        >
-      >(
-        'litert_lm_conversation_config_set_filter_channel_content_from_kv_cache',
-      );
-  late final _litert_lm_conversation_config_set_filter_channel_content_from_kv_cache =
-      _litert_lm_conversation_config_set_filter_channel_content_from_kv_cachePtr
-          .asFunction<
-            void Function(ffi.Pointer<LiteRtLmConversationConfig>, bool)
-          >();
-
-  /// Destroys a LiteRT LM Conversation Config.
-  void litert_lm_conversation_config_delete(
-    ffi.Pointer<LiteRtLmConversationConfig> config,
-  ) {
-    return _litert_lm_conversation_config_delete(config);
-  }
-
-  late final _litert_lm_conversation_config_deletePtr =
-      _lookup<
-        ffi.NativeFunction<
-          ffi.Void Function(ffi.Pointer<LiteRtLmConversationConfig>)
-        >
-      >('litert_lm_conversation_config_delete');
-  late final _litert_lm_conversation_config_delete =
-      _litert_lm_conversation_config_deletePtr
-          .asFunction<void Function(ffi.Pointer<LiteRtLmConversationConfig>)>();
-
-  /// Creates a LiteRT LM Conversation Optional Args. The caller is responsible
-  /// for destroying the optional args using
-  /// `litert_lm_conversation_optional_args_delete`.
-  ffi.Pointer<LiteRtLmConversationOptionalArgs>
-  litert_lm_conversation_optional_args_create() {
-    return _litert_lm_conversation_optional_args_create();
-  }
-
-  late final _litert_lm_conversation_optional_args_createPtr =
-      _lookup<
-        ffi.NativeFunction<
-          ffi.Pointer<LiteRtLmConversationOptionalArgs> Function()
-        >
-      >('litert_lm_conversation_optional_args_create');
-  late final _litert_lm_conversation_optional_args_create =
-      _litert_lm_conversation_optional_args_createPtr
-          .asFunction<
-            ffi.Pointer<LiteRtLmConversationOptionalArgs> Function()
-          >();
-
-  /// Destroys a LiteRT LM Conversation Optional Args.
-  void litert_lm_conversation_optional_args_delete(
-    ffi.Pointer<LiteRtLmConversationOptionalArgs> optional_args,
-  ) {
-    return _litert_lm_conversation_optional_args_delete(optional_args);
-  }
-
-  late final _litert_lm_conversation_optional_args_deletePtr =
-      _lookup<
-        ffi.NativeFunction<
-          ffi.Void Function(ffi.Pointer<LiteRtLmConversationOptionalArgs>)
-        >
-      >('litert_lm_conversation_optional_args_delete');
-  late final _litert_lm_conversation_optional_args_delete =
-      _litert_lm_conversation_optional_args_deletePtr
-          .asFunction<
-            void Function(ffi.Pointer<LiteRtLmConversationOptionalArgs>)
-          >();
-
-  /// Sets the visual token budget for the conversation optional args.
-  void litert_lm_conversation_optional_args_set_visual_token_budget(
-    ffi.Pointer<LiteRtLmConversationOptionalArgs> optional_args,
-    int visual_token_budget,
-  ) {
-    return _litert_lm_conversation_optional_args_set_visual_token_budget(
-      optional_args,
-      visual_token_budget,
-    );
-  }
-
-  late final _litert_lm_conversation_optional_args_set_visual_token_budgetPtr =
+  late final _litert_lm_repetition_penalty_config_set_frequency_penaltyPtr =
       _lookup<
         ffi.NativeFunction<
           ffi.Void Function(
-            ffi.Pointer<LiteRtLmConversationOptionalArgs>,
+            ffi.Pointer<LiteRtLmRepetitionPenaltyConfig>,
+            ffi.Float,
+          )
+        >
+      >('litert_lm_repetition_penalty_config_set_frequency_penalty');
+  late final _litert_lm_repetition_penalty_config_set_frequency_penalty =
+      _litert_lm_repetition_penalty_config_set_frequency_penaltyPtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmRepetitionPenaltyConfig>, double)
+          >();
+
+  /// Sets the window size for the repetition penalty config.
+  void litert_lm_repetition_penalty_config_set_window_size(
+    ffi.Pointer<LiteRtLmRepetitionPenaltyConfig> config,
+    int window_size,
+  ) {
+    return _litert_lm_repetition_penalty_config_set_window_size(
+      config,
+      window_size,
+    );
+  }
+
+  late final _litert_lm_repetition_penalty_config_set_window_sizePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Pointer<LiteRtLmRepetitionPenaltyConfig>,
             ffi.Int,
           )
         >
-      >('litert_lm_conversation_optional_args_set_visual_token_budget');
-  late final _litert_lm_conversation_optional_args_set_visual_token_budget =
-      _litert_lm_conversation_optional_args_set_visual_token_budgetPtr
+      >('litert_lm_repetition_penalty_config_set_window_size');
+  late final _litert_lm_repetition_penalty_config_set_window_size =
+      _litert_lm_repetition_penalty_config_set_window_sizePtr
           .asFunction<
-            void Function(ffi.Pointer<LiteRtLmConversationOptionalArgs>, int)
+            void Function(ffi.Pointer<LiteRtLmRepetitionPenaltyConfig>, int)
           >();
 
-  /// Sets the minimum log level for the LiteRT LM library. Log levels are:
-  /// 0=VERBOSE, 1=DEBUG, 2=INFO, 3=WARNING, 4=ERROR, 5=FATAL, 1000=SILENT.
-  void litert_lm_set_min_log_level(int level) {
-    return _litert_lm_set_min_log_level(level);
+  /// Creates a LiteRT LM No Repeat Ngram Config with default values
+  /// (`no_repeat_ngram_size` = 0, `window_size` = 0, which means no repeat
+  /// ngram banning is disabled).
+  ffi.Pointer<LiteRtLmNoRepeatNgramConfig>
+  litert_lm_no_repeat_ngram_config_create() {
+    return _litert_lm_no_repeat_ngram_config_create();
+  }
+
+  late final _litert_lm_no_repeat_ngram_config_createPtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Pointer<LiteRtLmNoRepeatNgramConfig> Function()>
+      >('litert_lm_no_repeat_ngram_config_create');
+  late final _litert_lm_no_repeat_ngram_config_create =
+      _litert_lm_no_repeat_ngram_config_createPtr
+          .asFunction<ffi.Pointer<LiteRtLmNoRepeatNgramConfig> Function()>();
+
+  /// Destroys a LiteRT LM No Repeat Ngram Config.
+  void litert_lm_no_repeat_ngram_config_delete(
+    ffi.Pointer<LiteRtLmNoRepeatNgramConfig> config,
+  ) {
+    return _litert_lm_no_repeat_ngram_config_delete(config);
+  }
+
+  late final _litert_lm_no_repeat_ngram_config_deletePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmNoRepeatNgramConfig>)
+        >
+      >('litert_lm_no_repeat_ngram_config_delete');
+  late final _litert_lm_no_repeat_ngram_config_delete =
+      _litert_lm_no_repeat_ngram_config_deletePtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmNoRepeatNgramConfig>)
+          >();
+
+  /// Sets the no repeat ngram size for the no repeat ngram config.
+  void litert_lm_no_repeat_ngram_config_set_no_repeat_ngram_size(
+    ffi.Pointer<LiteRtLmNoRepeatNgramConfig> config,
+    int no_repeat_ngram_size,
+  ) {
+    return _litert_lm_no_repeat_ngram_config_set_no_repeat_ngram_size(
+      config,
+      no_repeat_ngram_size,
+    );
+  }
+
+  late final _litert_lm_no_repeat_ngram_config_set_no_repeat_ngram_sizePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmNoRepeatNgramConfig>, ffi.Int)
+        >
+      >('litert_lm_no_repeat_ngram_config_set_no_repeat_ngram_size');
+  late final _litert_lm_no_repeat_ngram_config_set_no_repeat_ngram_size =
+      _litert_lm_no_repeat_ngram_config_set_no_repeat_ngram_sizePtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmNoRepeatNgramConfig>, int)
+          >();
+
+  /// Sets the window size for the no repeat ngram config.
+  void litert_lm_no_repeat_ngram_config_set_window_size(
+    ffi.Pointer<LiteRtLmNoRepeatNgramConfig> config,
+    int window_size,
+  ) {
+    return _litert_lm_no_repeat_ngram_config_set_window_size(
+      config,
+      window_size,
+    );
+  }
+
+  late final _litert_lm_no_repeat_ngram_config_set_window_sizePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmNoRepeatNgramConfig>, ffi.Int)
+        >
+      >('litert_lm_no_repeat_ngram_config_set_window_size');
+  late final _litert_lm_no_repeat_ngram_config_set_window_size =
+      _litert_lm_no_repeat_ngram_config_set_window_sizePtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmNoRepeatNgramConfig>, int)
+          >();
+
+  /// Creates a LiteRT LM Suppress Tokens Config with default values (an empty
+  /// set of suppressed tokens, which means token suppression is disabled).
+  ffi.Pointer<LiteRtLmSuppressTokensConfig>
+  litert_lm_suppress_tokens_config_create() {
+    return _litert_lm_suppress_tokens_config_create();
+  }
+
+  late final _litert_lm_suppress_tokens_config_createPtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Pointer<LiteRtLmSuppressTokensConfig> Function()>
+      >('litert_lm_suppress_tokens_config_create');
+  late final _litert_lm_suppress_tokens_config_create =
+      _litert_lm_suppress_tokens_config_createPtr
+          .asFunction<ffi.Pointer<LiteRtLmSuppressTokensConfig> Function()>();
+
+  /// Destroys a LiteRT LM Suppress Tokens Config.
+  void litert_lm_suppress_tokens_config_delete(
+    ffi.Pointer<LiteRtLmSuppressTokensConfig> config,
+  ) {
+    return _litert_lm_suppress_tokens_config_delete(config);
+  }
+
+  late final _litert_lm_suppress_tokens_config_deletePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmSuppressTokensConfig>)
+        >
+      >('litert_lm_suppress_tokens_config_delete');
+  late final _litert_lm_suppress_tokens_config_delete =
+      _litert_lm_suppress_tokens_config_deletePtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmSuppressTokensConfig>)
+          >();
+
+  /// Sets the list of token IDs to suppress for the suppress tokens config.
+  void litert_lm_suppress_tokens_config_set_suppress_tokens(
+    ffi.Pointer<LiteRtLmSuppressTokensConfig> config,
+    ffi.Pointer<ffi.Int> suppress_tokens,
+    int num_tokens,
+  ) {
+    return _litert_lm_suppress_tokens_config_set_suppress_tokens(
+      config,
+      suppress_tokens,
+      num_tokens,
+    );
+  }
+
+  late final _litert_lm_suppress_tokens_config_set_suppress_tokensPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Pointer<LiteRtLmSuppressTokensConfig>,
+            ffi.Pointer<ffi.Int>,
+            ffi.Size,
+          )
+        >
+      >('litert_lm_suppress_tokens_config_set_suppress_tokens');
+  late final _litert_lm_suppress_tokens_config_set_suppress_tokens =
+      _litert_lm_suppress_tokens_config_set_suppress_tokensPtr
+          .asFunction<
+            void Function(
+              ffi.Pointer<LiteRtLmSuppressTokensConfig>,
+              ffi.Pointer<ffi.Int>,
+              int,
+            )
+          >();
+
+  /// Sets the minimum log level for the LiteRT LM library.
+  void litert_lm_set_min_log_level(LiteRtLmLogSeverity level) {
+    return _litert_lm_set_min_log_level(level.value);
   }
 
   late final _litert_lm_set_min_log_levelPtr =
-      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int)>>(
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.UnsignedInt)>>(
         'litert_lm_set_min_log_level',
       );
   late final _litert_lm_set_min_log_level = _litert_lm_set_min_log_levelPtr
       .asFunction<void Function(int)>();
+
+  /// Creates a LiteRT LM Input Data. The caller is responsible for destroying
+  /// the input data using `litert_lm_input_data_delete`.
+  ffi.Pointer<LiteRtLmInputData> litert_lm_input_data_create(
+    LiteRtLmInputDataType type,
+    ffi.Pointer<ffi.Void> data,
+    int size,
+  ) {
+    return _litert_lm_input_data_create(type.value, data, size);
+  }
+
+  late final _litert_lm_input_data_createPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<LiteRtLmInputData> Function(
+            ffi.UnsignedInt,
+            ffi.Pointer<ffi.Void>,
+            ffi.Size,
+          )
+        >
+      >('litert_lm_input_data_create');
+  late final _litert_lm_input_data_create = _litert_lm_input_data_createPtr
+      .asFunction<
+        ffi.Pointer<LiteRtLmInputData> Function(int, ffi.Pointer<ffi.Void>, int)
+      >();
+
+  /// Destroys a LiteRT LM Input Data.
+  void litert_lm_input_data_delete(ffi.Pointer<LiteRtLmInputData> input_data) {
+    return _litert_lm_input_data_delete(input_data);
+  }
+
+  late final _litert_lm_input_data_deletePtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Void Function(ffi.Pointer<LiteRtLmInputData>)>
+      >('litert_lm_input_data_delete');
+  late final _litert_lm_input_data_delete = _litert_lm_input_data_deletePtr
+      .asFunction<void Function(ffi.Pointer<LiteRtLmInputData>)>();
 
   /// Creates LiteRT LM Engine Settings. The caller is responsible for
   /// destroying the settings using `litert_lm_engine_settings_delete`.
@@ -455,6 +692,47 @@ class LiteRtLmBindings {
           .asFunction<
             ffi.Pointer<LiteRtLmEngineSettings> Function(
               ffi.Pointer<ffi.Char>,
+              ffi.Pointer<ffi.Char>,
+              ffi.Pointer<ffi.Char>,
+              ffi.Pointer<ffi.Char>,
+            )
+          >();
+
+  /// Creates LiteRT LM Engine Settings from a raw file descriptor. The engine
+  /// takes ownership of the file descriptor and will close it when done. The
+  /// caller is responsible for destroying the settings using
+  /// `litert_lm_engine_settings_delete`.
+  ffi.Pointer<LiteRtLmEngineSettings>
+  litert_lm_engine_settings_create_from_raw_file_descriptor(
+    int fd,
+    ffi.Pointer<ffi.Char> backend_str,
+    ffi.Pointer<ffi.Char> vision_backend_str,
+    ffi.Pointer<ffi.Char> audio_backend_str,
+  ) {
+    return _litert_lm_engine_settings_create_from_raw_file_descriptor(
+      fd,
+      backend_str,
+      vision_backend_str,
+      audio_backend_str,
+    );
+  }
+
+  late final _litert_lm_engine_settings_create_from_raw_file_descriptorPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<LiteRtLmEngineSettings> Function(
+            ffi.Int,
+            ffi.Pointer<ffi.Char>,
+            ffi.Pointer<ffi.Char>,
+            ffi.Pointer<ffi.Char>,
+          )
+        >
+      >('litert_lm_engine_settings_create_from_raw_file_descriptor');
+  late final _litert_lm_engine_settings_create_from_raw_file_descriptor =
+      _litert_lm_engine_settings_create_from_raw_file_descriptorPtr
+          .asFunction<
+            ffi.Pointer<LiteRtLmEngineSettings> Function(
+              int,
               ffi.Pointer<ffi.Char>,
               ffi.Pointer<ffi.Char>,
               ffi.Pointer<ffi.Char>,
@@ -501,6 +779,49 @@ class LiteRtLmBindings {
             void Function(ffi.Pointer<LiteRtLmEngineSettings>, int)
           >();
 
+  /// Sets the number of threads for the CPU backend.
+  void litert_lm_engine_settings_set_num_threads(
+    ffi.Pointer<LiteRtLmEngineSettings> settings,
+    int num_threads,
+  ) {
+    return _litert_lm_engine_settings_set_num_threads(settings, num_threads);
+  }
+
+  late final _litert_lm_engine_settings_set_num_threadsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>, ffi.Int)
+        >
+      >('litert_lm_engine_settings_set_num_threads');
+  late final _litert_lm_engine_settings_set_num_threads =
+      _litert_lm_engine_settings_set_num_threadsPtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmEngineSettings>, int)
+          >();
+
+  /// Sets the number of threads for the audio CPU backend.
+  void litert_lm_engine_settings_set_audio_num_threads(
+    ffi.Pointer<LiteRtLmEngineSettings> settings,
+    int num_threads,
+  ) {
+    return _litert_lm_engine_settings_set_audio_num_threads(
+      settings,
+      num_threads,
+    );
+  }
+
+  late final _litert_lm_engine_settings_set_audio_num_threadsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>, ffi.Int)
+        >
+      >('litert_lm_engine_settings_set_audio_num_threads');
+  late final _litert_lm_engine_settings_set_audio_num_threads =
+      _litert_lm_engine_settings_set_audio_num_threadsPtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmEngineSettings>, int)
+          >();
+
   /// Sets whether the engine should load different sections of the litertlm
   /// file in parallel. Defaults to true.
   void litert_lm_engine_settings_set_parallel_file_section_loading(
@@ -525,6 +846,29 @@ class LiteRtLmBindings {
             void Function(ffi.Pointer<LiteRtLmEngineSettings>, bool)
           >();
 
+  /// Sets whether to enable single threaded execution.
+  void litert_lm_engine_settings_set_single_threaded_execution(
+    ffi.Pointer<LiteRtLmEngineSettings> settings,
+    bool single_threaded_execution,
+  ) {
+    return _litert_lm_engine_settings_set_single_threaded_execution(
+      settings,
+      single_threaded_execution,
+    );
+  }
+
+  late final _litert_lm_engine_settings_set_single_threaded_executionPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>, ffi.Bool)
+        >
+      >('litert_lm_engine_settings_set_single_threaded_execution');
+  late final _litert_lm_engine_settings_set_single_threaded_execution =
+      _litert_lm_engine_settings_set_single_threaded_executionPtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmEngineSettings>, bool)
+          >();
+
   /// Sets the maximum number of images for the engine.
   void litert_lm_engine_settings_set_max_num_images(
     ffi.Pointer<LiteRtLmEngineSettings> settings,
@@ -544,6 +888,29 @@ class LiteRtLmBindings {
       >('litert_lm_engine_settings_set_max_num_images');
   late final _litert_lm_engine_settings_set_max_num_images =
       _litert_lm_engine_settings_set_max_num_imagesPtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmEngineSettings>, int)
+          >();
+
+  /// Sets the maximum vision tokens generated per image for the engine.
+  void litert_lm_engine_settings_set_max_vision_tokens_per_image(
+    ffi.Pointer<LiteRtLmEngineSettings> settings,
+    int max_vision_tokens_per_image,
+  ) {
+    return _litert_lm_engine_settings_set_max_vision_tokens_per_image(
+      settings,
+      max_vision_tokens_per_image,
+    );
+  }
+
+  late final _litert_lm_engine_settings_set_max_vision_tokens_per_imagePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>, ffi.Int)
+        >
+      >('litert_lm_engine_settings_set_max_vision_tokens_per_image');
+  late final _litert_lm_engine_settings_set_max_vision_tokens_per_image =
+      _litert_lm_engine_settings_set_max_vision_tokens_per_imagePtr
           .asFunction<
             void Function(ffi.Pointer<LiteRtLmEngineSettings>, int)
           >();
@@ -606,18 +973,21 @@ class LiteRtLmBindings {
   /// Sets the activation data type.
   void litert_lm_engine_settings_set_activation_data_type(
     ffi.Pointer<LiteRtLmEngineSettings> settings,
-    int activation_data_type_int,
+    LiteRtLmActivationDataType activation_data_type,
   ) {
     return _litert_lm_engine_settings_set_activation_data_type(
       settings,
-      activation_data_type_int,
+      activation_data_type.value,
     );
   }
 
   late final _litert_lm_engine_settings_set_activation_data_typePtr =
       _lookup<
         ffi.NativeFunction<
-          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>, ffi.Int)
+          ffi.Void Function(
+            ffi.Pointer<LiteRtLmEngineSettings>,
+            ffi.UnsignedInt,
+          )
         >
       >('litert_lm_engine_settings_set_activation_data_type');
   late final _litert_lm_engine_settings_set_activation_data_type =
@@ -648,6 +1018,29 @@ class LiteRtLmBindings {
       _litert_lm_engine_settings_set_prefill_chunk_sizePtr
           .asFunction<
             void Function(ffi.Pointer<LiteRtLmEngineSettings>, int)
+          >();
+
+  /// Sets whether YNNPACK should delegate supported operations before XNNPACK.
+  void litert_lm_engine_settings_set_enable_ynnpack(
+    ffi.Pointer<LiteRtLmEngineSettings> settings,
+    bool enable_ynnpack,
+  ) {
+    return _litert_lm_engine_settings_set_enable_ynnpack(
+      settings,
+      enable_ynnpack,
+    );
+  }
+
+  late final _litert_lm_engine_settings_set_enable_ynnpackPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>, ffi.Bool)
+        >
+      >('litert_lm_engine_settings_set_enable_ynnpack');
+  late final _litert_lm_engine_settings_set_enable_ynnpack =
+      _litert_lm_engine_settings_set_enable_ynnpackPtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmEngineSettings>, bool)
           >();
 
   /// Enables benchmarking for the engine.
@@ -732,6 +1125,206 @@ class LiteRtLmBindings {
       >('litert_lm_engine_settings_set_enable_speculative_decoding');
   late final _litert_lm_engine_settings_set_enable_speculative_decoding =
       _litert_lm_engine_settings_set_enable_speculative_decodingPtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmEngineSettings>, bool)
+          >();
+
+  /// Sets the number of decode steps per sync for the GPU backend. Note: This
+  /// setting is currently only supported for the Artisan GPU backend (Artisan).
+  void litert_lm_engine_settings_set_gpu_decode_steps_per_sync(
+    ffi.Pointer<LiteRtLmEngineSettings> settings,
+    int num_decode_steps_per_sync,
+  ) {
+    return _litert_lm_engine_settings_set_gpu_decode_steps_per_sync(
+      settings,
+      num_decode_steps_per_sync,
+    );
+  }
+
+  late final _litert_lm_engine_settings_set_gpu_decode_steps_per_syncPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>, ffi.Int)
+        >
+      >('litert_lm_engine_settings_set_gpu_decode_steps_per_sync');
+  late final _litert_lm_engine_settings_set_gpu_decode_steps_per_sync =
+      _litert_lm_engine_settings_set_gpu_decode_steps_per_syncPtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmEngineSettings>, int)
+          >();
+
+  /// Sets whether to wait for weight uploads for the GPU backend. Note: This
+  /// setting is currently only supported for the Artisan GPU backend.
+  void litert_lm_engine_settings_set_gpu_wait_for_weight_uploads(
+    ffi.Pointer<LiteRtLmEngineSettings> settings,
+    bool wait_for_weight_uploads,
+  ) {
+    return _litert_lm_engine_settings_set_gpu_wait_for_weight_uploads(
+      settings,
+      wait_for_weight_uploads,
+    );
+  }
+
+  late final _litert_lm_engine_settings_set_gpu_wait_for_weight_uploadsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>, ffi.Bool)
+        >
+      >('litert_lm_engine_settings_set_gpu_wait_for_weight_uploads');
+  late final _litert_lm_engine_settings_set_gpu_wait_for_weight_uploads =
+      _litert_lm_engine_settings_set_gpu_wait_for_weight_uploadsPtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmEngineSettings>, bool)
+          >();
+
+  /// Sets whether to use ringbuffers for local attention KV cache.
+  void litert_lm_engine_settings_set_use_ringbuffers_local_attention(
+    ffi.Pointer<LiteRtLmEngineSettings> settings,
+    bool use_ringbuffers_local_attention,
+  ) {
+    return _litert_lm_engine_settings_set_use_ringbuffers_local_attention(
+      settings,
+      use_ringbuffers_local_attention,
+    );
+  }
+
+  late final _litert_lm_engine_settings_set_use_ringbuffers_local_attentionPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>, ffi.Bool)
+        >
+      >('litert_lm_engine_settings_set_use_ringbuffers_local_attention');
+  late final _litert_lm_engine_settings_set_use_ringbuffers_local_attention =
+      _litert_lm_engine_settings_set_use_ringbuffers_local_attentionPtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmEngineSettings>, bool)
+          >();
+
+  /// Sets the LoRA rank for the engine.
+  void litert_lm_engine_settings_set_lora_rank(
+    ffi.Pointer<LiteRtLmEngineSettings> settings,
+    int lora_rank,
+  ) {
+    return _litert_lm_engine_settings_set_lora_rank(settings, lora_rank);
+  }
+
+  late final _litert_lm_engine_settings_set_lora_rankPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>, ffi.Int)
+        >
+      >('litert_lm_engine_settings_set_lora_rank');
+  late final _litert_lm_engine_settings_set_lora_rank =
+      _litert_lm_engine_settings_set_lora_rankPtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmEngineSettings>, int)
+          >();
+
+  /// Sets the supported LoRA ranks for the engine.
+  int litert_lm_engine_settings_set_supported_lora_ranks(
+    ffi.Pointer<LiteRtLmEngineSettings> settings,
+    ffi.Pointer<ffi.Int> lora_ranks,
+    int num_ranks,
+  ) {
+    return _litert_lm_engine_settings_set_supported_lora_ranks(
+      settings,
+      lora_ranks,
+      num_ranks,
+    );
+  }
+
+  late final _litert_lm_engine_settings_set_supported_lora_ranksPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(
+            ffi.Pointer<LiteRtLmEngineSettings>,
+            ffi.Pointer<ffi.Int>,
+            ffi.Size,
+          )
+        >
+      >('litert_lm_engine_settings_set_supported_lora_ranks');
+  late final _litert_lm_engine_settings_set_supported_lora_ranks =
+      _litert_lm_engine_settings_set_supported_lora_ranksPtr
+          .asFunction<
+            int Function(
+              ffi.Pointer<LiteRtLmEngineSettings>,
+              ffi.Pointer<ffi.Int>,
+              int,
+            )
+          >();
+
+  /// Sets the Audio LoRA rank for the engine.
+  void litert_lm_engine_settings_set_audio_lora_rank(
+    ffi.Pointer<LiteRtLmEngineSettings> settings,
+    int lora_rank,
+  ) {
+    return _litert_lm_engine_settings_set_audio_lora_rank(settings, lora_rank);
+  }
+
+  late final _litert_lm_engine_settings_set_audio_lora_rankPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>, ffi.Int)
+        >
+      >('litert_lm_engine_settings_set_audio_lora_rank');
+  late final _litert_lm_engine_settings_set_audio_lora_rank =
+      _litert_lm_engine_settings_set_audio_lora_rankPtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmEngineSettings>, int)
+          >();
+
+  /// Sets the supported Audio LoRA ranks for the engine.
+  int litert_lm_engine_settings_set_supported_audio_lora_ranks(
+    ffi.Pointer<LiteRtLmEngineSettings> settings,
+    ffi.Pointer<ffi.Int> lora_ranks,
+    int num_ranks,
+  ) {
+    return _litert_lm_engine_settings_set_supported_audio_lora_ranks(
+      settings,
+      lora_ranks,
+      num_ranks,
+    );
+  }
+
+  late final _litert_lm_engine_settings_set_supported_audio_lora_ranksPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(
+            ffi.Pointer<LiteRtLmEngineSettings>,
+            ffi.Pointer<ffi.Int>,
+            ffi.Size,
+          )
+        >
+      >('litert_lm_engine_settings_set_supported_audio_lora_ranks');
+  late final _litert_lm_engine_settings_set_supported_audio_lora_ranks =
+      _litert_lm_engine_settings_set_supported_audio_lora_ranksPtr
+          .asFunction<
+            int Function(
+              ffi.Pointer<LiteRtLmEngineSettings>,
+              ffi.Pointer<ffi.Int>,
+              int,
+            )
+          >();
+
+  /// Sets whether to enable Metal residency set on GPU.
+  void litert_lm_engine_settings_set_gpu_enable_metal_residency_set(
+    ffi.Pointer<LiteRtLmEngineSettings> settings,
+    bool enable_metal_residency_set,
+  ) {
+    return _litert_lm_engine_settings_set_gpu_enable_metal_residency_set(
+      settings,
+      enable_metal_residency_set,
+    );
+  }
+
+  late final _litert_lm_engine_settings_set_gpu_enable_metal_residency_setPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>, ffi.Bool)
+        >
+      >('litert_lm_engine_settings_set_gpu_enable_metal_residency_set');
+  late final _litert_lm_engine_settings_set_gpu_enable_metal_residency_set =
+      _litert_lm_engine_settings_set_gpu_enable_metal_residency_setPtr
           .asFunction<
             void Function(ffi.Pointer<LiteRtLmEngineSettings>, bool)
           >();
@@ -823,12 +1416,71 @@ class LiteRtLmBindings {
       _litert_lm_session_cancel_processPtr
           .asFunction<void Function(ffi.Pointer<LiteRtLmSession>)>();
 
+  /// Saves the current state of the session to a checkpoint with the given
+  /// label.
+  int litert_lm_session_save_checkpoint(
+    ffi.Pointer<LiteRtLmSession> session,
+    ffi.Pointer<ffi.Char> label,
+  ) {
+    return _litert_lm_session_save_checkpoint(session, label);
+  }
+
+  late final _litert_lm_session_save_checkpointPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(ffi.Pointer<LiteRtLmSession>, ffi.Pointer<ffi.Char>)
+        >
+      >('litert_lm_session_save_checkpoint');
+  late final _litert_lm_session_save_checkpoint =
+      _litert_lm_session_save_checkpointPtr
+          .asFunction<
+            int Function(ffi.Pointer<LiteRtLmSession>, ffi.Pointer<ffi.Char>)
+          >();
+
+  /// Rewinds the session to the given checkpoint label.
+  int litert_lm_session_rewind_to_checkpoint(
+    ffi.Pointer<LiteRtLmSession> session,
+    ffi.Pointer<ffi.Char> label,
+  ) {
+    return _litert_lm_session_rewind_to_checkpoint(session, label);
+  }
+
+  late final _litert_lm_session_rewind_to_checkpointPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(ffi.Pointer<LiteRtLmSession>, ffi.Pointer<ffi.Char>)
+        >
+      >('litert_lm_session_rewind_to_checkpoint');
+  late final _litert_lm_session_rewind_to_checkpoint =
+      _litert_lm_session_rewind_to_checkpointPtr
+          .asFunction<
+            int Function(ffi.Pointer<LiteRtLmSession>, ffi.Pointer<ffi.Char>)
+          >();
+
+  /// Rewinds the session to a specific step number.
+  int litert_lm_session_rewind_to_step(
+    ffi.Pointer<LiteRtLmSession> session,
+    int step,
+  ) {
+    return _litert_lm_session_rewind_to_step(session, step);
+  }
+
+  late final _litert_lm_session_rewind_to_stepPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(ffi.Pointer<LiteRtLmSession>, ffi.Int)
+        >
+      >('litert_lm_session_rewind_to_step');
+  late final _litert_lm_session_rewind_to_step =
+      _litert_lm_session_rewind_to_stepPtr
+          .asFunction<int Function(ffi.Pointer<LiteRtLmSession>, int)>();
+
   /// Adds the input prompt/query to the model for starting the prefilling
   /// process. This is a blocking call and the function will return when the
   /// prefill process is done.
   int litert_lm_session_run_prefill(
     ffi.Pointer<LiteRtLmSession> session,
-    ffi.Pointer<LiteRtLmInputData> inputs,
+    ffi.Pointer<ffi.Pointer<LiteRtLmInputData>> inputs,
     int num_inputs,
   ) {
     return _litert_lm_session_run_prefill(session, inputs, num_inputs);
@@ -839,7 +1491,7 @@ class LiteRtLmBindings {
         ffi.NativeFunction<
           ffi.Int Function(
             ffi.Pointer<LiteRtLmSession>,
-            ffi.Pointer<LiteRtLmInputData>,
+            ffi.Pointer<ffi.Pointer<LiteRtLmInputData>>,
             ffi.Size,
           )
         >
@@ -848,7 +1500,7 @@ class LiteRtLmBindings {
       .asFunction<
         int Function(
           ffi.Pointer<LiteRtLmSession>,
-          ffi.Pointer<LiteRtLmInputData>,
+          ffi.Pointer<ffi.Pointer<LiteRtLmInputData>>,
           int,
         )
       >();
@@ -914,7 +1566,7 @@ class LiteRtLmBindings {
   /// Generates content from the input prompt.
   ffi.Pointer<LiteRtLmResponses> litert_lm_session_generate_content(
     ffi.Pointer<LiteRtLmSession> session,
-    ffi.Pointer<LiteRtLmInputData> inputs,
+    ffi.Pointer<ffi.Pointer<LiteRtLmInputData>> inputs,
     int num_inputs,
   ) {
     return _litert_lm_session_generate_content(session, inputs, num_inputs);
@@ -925,7 +1577,7 @@ class LiteRtLmBindings {
         ffi.NativeFunction<
           ffi.Pointer<LiteRtLmResponses> Function(
             ffi.Pointer<LiteRtLmSession>,
-            ffi.Pointer<LiteRtLmInputData>,
+            ffi.Pointer<ffi.Pointer<LiteRtLmInputData>>,
             ffi.Size,
           )
         >
@@ -935,7 +1587,7 @@ class LiteRtLmBindings {
           .asFunction<
             ffi.Pointer<LiteRtLmResponses> Function(
               ffi.Pointer<LiteRtLmSession>,
-              ffi.Pointer<LiteRtLmInputData>,
+              ffi.Pointer<ffi.Pointer<LiteRtLmInputData>>,
               int,
             )
           >();
@@ -1318,6 +1970,61 @@ class LiteRtLmBindings {
             double Function(ffi.Pointer<LiteRtLmBenchmarkInfo>, int)
           >();
 
+  /// Gets the text content of the chunk. The returned string is owned by the
+  /// chunk and is only valid as long as the chunk is valid. Returns NULL if
+  /// there is no text content in this chunk (e.g. if it is an error or
+  /// metadata-only chunk).
+  ffi.Pointer<ffi.Char> litert_lm_stream_chunk_get_text(
+    ffi.Pointer<LiteRtLmStreamChunk> chunk,
+  ) {
+    return _litert_lm_stream_chunk_get_text(chunk);
+  }
+
+  late final _litert_lm_stream_chunk_get_textPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<ffi.Char> Function(ffi.Pointer<LiteRtLmStreamChunk>)
+        >
+      >('litert_lm_stream_chunk_get_text');
+  late final _litert_lm_stream_chunk_get_text =
+      _litert_lm_stream_chunk_get_textPtr
+          .asFunction<
+            ffi.Pointer<ffi.Char> Function(ffi.Pointer<LiteRtLmStreamChunk>)
+          >();
+
+  /// Returns true if this is the final chunk of the stream.
+  bool litert_lm_stream_chunk_is_final(ffi.Pointer<LiteRtLmStreamChunk> chunk) {
+    return _litert_lm_stream_chunk_is_final(chunk);
+  }
+
+  late final _litert_lm_stream_chunk_is_finalPtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Bool Function(ffi.Pointer<LiteRtLmStreamChunk>)>
+      >('litert_lm_stream_chunk_is_final');
+  late final _litert_lm_stream_chunk_is_final =
+      _litert_lm_stream_chunk_is_finalPtr
+          .asFunction<bool Function(ffi.Pointer<LiteRtLmStreamChunk>)>();
+
+  /// Gets the error message associated with this chunk, if any. Returns NULL if
+  /// there is no error.
+  ffi.Pointer<ffi.Char> litert_lm_stream_chunk_get_error(
+    ffi.Pointer<LiteRtLmStreamChunk> chunk,
+  ) {
+    return _litert_lm_stream_chunk_get_error(chunk);
+  }
+
+  late final _litert_lm_stream_chunk_get_errorPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<ffi.Char> Function(ffi.Pointer<LiteRtLmStreamChunk>)
+        >
+      >('litert_lm_stream_chunk_get_error');
+  late final _litert_lm_stream_chunk_get_error =
+      _litert_lm_stream_chunk_get_errorPtr
+          .asFunction<
+            ffi.Pointer<ffi.Char> Function(ffi.Pointer<LiteRtLmStreamChunk>)
+          >();
+
   /// Starts the decoding process for the model to predict the response based on
   /// the input prompt/query added after using litert_lm_session_run_prefill.
   /// This is a non-blocking call that will stream responses via a callback.
@@ -1358,7 +2065,7 @@ class LiteRtLmBindings {
   /// background thread for each chunk.
   int litert_lm_session_generate_content_stream(
     ffi.Pointer<LiteRtLmSession> session,
-    ffi.Pointer<LiteRtLmInputData> inputs,
+    ffi.Pointer<ffi.Pointer<LiteRtLmInputData>> inputs,
     int num_inputs,
     LiteRtLmStreamCallback callback,
     ffi.Pointer<ffi.Void> callback_data,
@@ -1377,7 +2084,7 @@ class LiteRtLmBindings {
         ffi.NativeFunction<
           ffi.Int Function(
             ffi.Pointer<LiteRtLmSession>,
-            ffi.Pointer<LiteRtLmInputData>,
+            ffi.Pointer<ffi.Pointer<LiteRtLmInputData>>,
             ffi.Size,
             LiteRtLmStreamCallback,
             ffi.Pointer<ffi.Void>,
@@ -1389,262 +2096,10 @@ class LiteRtLmBindings {
           .asFunction<
             int Function(
               ffi.Pointer<LiteRtLmSession>,
-              ffi.Pointer<LiteRtLmInputData>,
+              ffi.Pointer<ffi.Pointer<LiteRtLmInputData>>,
               int,
               LiteRtLmStreamCallback,
               ffi.Pointer<ffi.Void>,
-            )
-          >();
-
-  /// Creates a LiteRT LM Conversation. The caller is responsible for destroying
-  /// the conversation using `litert_lm_conversation_delete`.
-  ffi.Pointer<LiteRtLmConversation> litert_lm_conversation_create(
-    ffi.Pointer<LiteRtLmEngine> engine,
-    ffi.Pointer<LiteRtLmConversationConfig> config,
-  ) {
-    return _litert_lm_conversation_create(engine, config);
-  }
-
-  late final _litert_lm_conversation_createPtr =
-      _lookup<
-        ffi.NativeFunction<
-          ffi.Pointer<LiteRtLmConversation> Function(
-            ffi.Pointer<LiteRtLmEngine>,
-            ffi.Pointer<LiteRtLmConversationConfig>,
-          )
-        >
-      >('litert_lm_conversation_create');
-  late final _litert_lm_conversation_create = _litert_lm_conversation_createPtr
-      .asFunction<
-        ffi.Pointer<LiteRtLmConversation> Function(
-          ffi.Pointer<LiteRtLmEngine>,
-          ffi.Pointer<LiteRtLmConversationConfig>,
-        )
-      >();
-
-  /// Destroys a LiteRT LM Conversation.
-  void litert_lm_conversation_delete(
-    ffi.Pointer<LiteRtLmConversation> conversation,
-  ) {
-    return _litert_lm_conversation_delete(conversation);
-  }
-
-  late final _litert_lm_conversation_deletePtr =
-      _lookup<
-        ffi.NativeFunction<ffi.Void Function(ffi.Pointer<LiteRtLmConversation>)>
-      >('litert_lm_conversation_delete');
-  late final _litert_lm_conversation_delete = _litert_lm_conversation_deletePtr
-      .asFunction<void Function(ffi.Pointer<LiteRtLmConversation>)>();
-
-  /// Clones a LiteRT LM Conversation, duplicating its prefilled state. The
-  /// caller is responsible for destroying the cloned conversation using
-  /// `litert_lm_conversation_delete`.
-  ffi.Pointer<LiteRtLmConversation> litert_lm_conversation_clone(
-    ffi.Pointer<LiteRtLmConversation> conversation,
-  ) {
-    return _litert_lm_conversation_clone(conversation);
-  }
-
-  late final _litert_lm_conversation_clonePtr =
-      _lookup<
-        ffi.NativeFunction<
-          ffi.Pointer<LiteRtLmConversation> Function(
-            ffi.Pointer<LiteRtLmConversation>,
-          )
-        >
-      >('litert_lm_conversation_clone');
-  late final _litert_lm_conversation_clone = _litert_lm_conversation_clonePtr
-      .asFunction<
-        ffi.Pointer<LiteRtLmConversation> Function(
-          ffi.Pointer<LiteRtLmConversation>,
-        )
-      >();
-
-  /// Sends a message to the conversation and returns the response. This is a
-  /// blocking call.
-  ffi.Pointer<LiteRtLmJsonResponse> litert_lm_conversation_send_message(
-    ffi.Pointer<LiteRtLmConversation> conversation,
-    ffi.Pointer<ffi.Char> message_json,
-    ffi.Pointer<ffi.Char> extra_context,
-    ffi.Pointer<LiteRtLmConversationOptionalArgs> optional_args,
-  ) {
-    return _litert_lm_conversation_send_message(
-      conversation,
-      message_json,
-      extra_context,
-      optional_args,
-    );
-  }
-
-  late final _litert_lm_conversation_send_messagePtr =
-      _lookup<
-        ffi.NativeFunction<
-          ffi.Pointer<LiteRtLmJsonResponse> Function(
-            ffi.Pointer<LiteRtLmConversation>,
-            ffi.Pointer<ffi.Char>,
-            ffi.Pointer<ffi.Char>,
-            ffi.Pointer<LiteRtLmConversationOptionalArgs>,
-          )
-        >
-      >('litert_lm_conversation_send_message');
-  late final _litert_lm_conversation_send_message =
-      _litert_lm_conversation_send_messagePtr
-          .asFunction<
-            ffi.Pointer<LiteRtLmJsonResponse> Function(
-              ffi.Pointer<LiteRtLmConversation>,
-              ffi.Pointer<ffi.Char>,
-              ffi.Pointer<ffi.Char>,
-              ffi.Pointer<LiteRtLmConversationOptionalArgs>,
-            )
-          >();
-
-  /// Destroys a LiteRT LM Json Response object.
-  void litert_lm_json_response_delete(
-    ffi.Pointer<LiteRtLmJsonResponse> response,
-  ) {
-    return _litert_lm_json_response_delete(response);
-  }
-
-  late final _litert_lm_json_response_deletePtr =
-      _lookup<
-        ffi.NativeFunction<ffi.Void Function(ffi.Pointer<LiteRtLmJsonResponse>)>
-      >('litert_lm_json_response_delete');
-  late final _litert_lm_json_response_delete =
-      _litert_lm_json_response_deletePtr
-          .asFunction<void Function(ffi.Pointer<LiteRtLmJsonResponse>)>();
-
-  /// Returns the JSON response string from a response object.
-  ffi.Pointer<ffi.Char> litert_lm_json_response_get_string(
-    ffi.Pointer<LiteRtLmJsonResponse> response,
-  ) {
-    return _litert_lm_json_response_get_string(response);
-  }
-
-  late final _litert_lm_json_response_get_stringPtr =
-      _lookup<
-        ffi.NativeFunction<
-          ffi.Pointer<ffi.Char> Function(ffi.Pointer<LiteRtLmJsonResponse>)
-        >
-      >('litert_lm_json_response_get_string');
-  late final _litert_lm_json_response_get_string =
-      _litert_lm_json_response_get_stringPtr
-          .asFunction<
-            ffi.Pointer<ffi.Char> Function(ffi.Pointer<LiteRtLmJsonResponse>)
-          >();
-
-  /// Sends a message to the conversation and streams the response via a
-  /// callback. This is a non-blocking call that will invoke the callback from a
-  /// background thread for each chunk.
-  int litert_lm_conversation_send_message_stream(
-    ffi.Pointer<LiteRtLmConversation> conversation,
-    ffi.Pointer<ffi.Char> message_json,
-    ffi.Pointer<ffi.Char> extra_context,
-    ffi.Pointer<LiteRtLmConversationOptionalArgs> optional_args,
-    LiteRtLmStreamCallback callback,
-    ffi.Pointer<ffi.Void> callback_data,
-  ) {
-    return _litert_lm_conversation_send_message_stream(
-      conversation,
-      message_json,
-      extra_context,
-      optional_args,
-      callback,
-      callback_data,
-    );
-  }
-
-  late final _litert_lm_conversation_send_message_streamPtr =
-      _lookup<
-        ffi.NativeFunction<
-          ffi.Int Function(
-            ffi.Pointer<LiteRtLmConversation>,
-            ffi.Pointer<ffi.Char>,
-            ffi.Pointer<ffi.Char>,
-            ffi.Pointer<LiteRtLmConversationOptionalArgs>,
-            LiteRtLmStreamCallback,
-            ffi.Pointer<ffi.Void>,
-          )
-        >
-      >('litert_lm_conversation_send_message_stream');
-  late final _litert_lm_conversation_send_message_stream =
-      _litert_lm_conversation_send_message_streamPtr
-          .asFunction<
-            int Function(
-              ffi.Pointer<LiteRtLmConversation>,
-              ffi.Pointer<ffi.Char>,
-              ffi.Pointer<ffi.Char>,
-              ffi.Pointer<LiteRtLmConversationOptionalArgs>,
-              LiteRtLmStreamCallback,
-              ffi.Pointer<ffi.Void>,
-            )
-          >();
-
-  /// Renders the message into a string according to the template.
-  ffi.Pointer<ffi.Char> litert_lm_conversation_render_message_to_string(
-    ffi.Pointer<LiteRtLmConversation> conversation,
-    ffi.Pointer<ffi.Char> message_json,
-  ) {
-    return _litert_lm_conversation_render_message_to_string(
-      conversation,
-      message_json,
-    );
-  }
-
-  late final _litert_lm_conversation_render_message_to_stringPtr =
-      _lookup<
-        ffi.NativeFunction<
-          ffi.Pointer<ffi.Char> Function(
-            ffi.Pointer<LiteRtLmConversation>,
-            ffi.Pointer<ffi.Char>,
-          )
-        >
-      >('litert_lm_conversation_render_message_to_string');
-  late final _litert_lm_conversation_render_message_to_string =
-      _litert_lm_conversation_render_message_to_stringPtr
-          .asFunction<
-            ffi.Pointer<ffi.Char> Function(
-              ffi.Pointer<LiteRtLmConversation>,
-              ffi.Pointer<ffi.Char>,
-            )
-          >();
-
-  /// Cancels the ongoing inference process, for asynchronous inference.
-  void litert_lm_conversation_cancel_process(
-    ffi.Pointer<LiteRtLmConversation> conversation,
-  ) {
-    return _litert_lm_conversation_cancel_process(conversation);
-  }
-
-  late final _litert_lm_conversation_cancel_processPtr =
-      _lookup<
-        ffi.NativeFunction<ffi.Void Function(ffi.Pointer<LiteRtLmConversation>)>
-      >('litert_lm_conversation_cancel_process');
-  late final _litert_lm_conversation_cancel_process =
-      _litert_lm_conversation_cancel_processPtr
-          .asFunction<void Function(ffi.Pointer<LiteRtLmConversation>)>();
-
-  /// Retrieves the benchmark information from the conversation. The caller is
-  /// responsible for destroying the benchmark info using
-  /// `litert_lm_benchmark_info_delete`.
-  ffi.Pointer<LiteRtLmBenchmarkInfo> litert_lm_conversation_get_benchmark_info(
-    ffi.Pointer<LiteRtLmConversation> conversation,
-  ) {
-    return _litert_lm_conversation_get_benchmark_info(conversation);
-  }
-
-  late final _litert_lm_conversation_get_benchmark_infoPtr =
-      _lookup<
-        ffi.NativeFunction<
-          ffi.Pointer<LiteRtLmBenchmarkInfo> Function(
-            ffi.Pointer<LiteRtLmConversation>,
-          )
-        >
-      >('litert_lm_conversation_get_benchmark_info');
-  late final _litert_lm_conversation_get_benchmark_info =
-      _litert_lm_conversation_get_benchmark_infoPtr
-          .asFunction<
-            ffi.Pointer<LiteRtLmBenchmarkInfo> Function(
-              ffi.Pointer<LiteRtLmConversation>,
             )
           >();
 
@@ -1970,17 +2425,1780 @@ class LiteRtLmBindings {
               ffi.Pointer<LiteRtLmEngine>,
             )
           >();
-}
 
-/// mbstate_t is an opaque object to keep conversion state, during multibyte
-/// stream conversions. The content must not be referenced by user programs.
-final class __mbstate_t extends ffi.Union {
-  @ffi.Array.multi([128])
-  external ffi.Array<ffi.Char> __mbstate8;
+  /// Creates a LiteRT LM Conversation Config. The caller is responsible for
+  /// destroying the config using `litert_lm_conversation_config_delete`.
+  ffi.Pointer<LiteRtLmConversationConfig>
+  litert_lm_conversation_config_create() {
+    return _litert_lm_conversation_config_create();
+  }
 
-  /// for alignment
-  @ffi.LongLong()
-  external int _mbstateL;
+  late final _litert_lm_conversation_config_createPtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Pointer<LiteRtLmConversationConfig> Function()>
+      >('litert_lm_conversation_config_create');
+  late final _litert_lm_conversation_config_create =
+      _litert_lm_conversation_config_createPtr
+          .asFunction<ffi.Pointer<LiteRtLmConversationConfig> Function()>();
+
+  /// Sets the session config for this conversation config.
+  void litert_lm_conversation_config_set_session_config(
+    ffi.Pointer<LiteRtLmConversationConfig> config,
+    ffi.Pointer<LiteRtLmSessionConfig> session_config,
+  ) {
+    return _litert_lm_conversation_config_set_session_config(
+      config,
+      session_config,
+    );
+  }
+
+  late final _litert_lm_conversation_config_set_session_configPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Pointer<LiteRtLmConversationConfig>,
+            ffi.Pointer<LiteRtLmSessionConfig>,
+          )
+        >
+      >('litert_lm_conversation_config_set_session_config');
+  late final _litert_lm_conversation_config_set_session_config =
+      _litert_lm_conversation_config_set_session_configPtr
+          .asFunction<
+            void Function(
+              ffi.Pointer<LiteRtLmConversationConfig>,
+              ffi.Pointer<LiteRtLmSessionConfig>,
+            )
+          >();
+
+  /// Sets the system message for this conversation config.
+  void litert_lm_conversation_config_set_system_message(
+    ffi.Pointer<LiteRtLmConversationConfig> config,
+    ffi.Pointer<ffi.Char> system_message_json,
+  ) {
+    return _litert_lm_conversation_config_set_system_message(
+      config,
+      system_message_json,
+    );
+  }
+
+  late final _litert_lm_conversation_config_set_system_messagePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Pointer<LiteRtLmConversationConfig>,
+            ffi.Pointer<ffi.Char>,
+          )
+        >
+      >('litert_lm_conversation_config_set_system_message');
+  late final _litert_lm_conversation_config_set_system_message =
+      _litert_lm_conversation_config_set_system_messagePtr
+          .asFunction<
+            void Function(
+              ffi.Pointer<LiteRtLmConversationConfig>,
+              ffi.Pointer<ffi.Char>,
+            )
+          >();
+
+  /// Sets the tools for this conversation config.
+  void litert_lm_conversation_config_set_tools(
+    ffi.Pointer<LiteRtLmConversationConfig> config,
+    ffi.Pointer<ffi.Char> tools_json,
+  ) {
+    return _litert_lm_conversation_config_set_tools(config, tools_json);
+  }
+
+  late final _litert_lm_conversation_config_set_toolsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Pointer<LiteRtLmConversationConfig>,
+            ffi.Pointer<ffi.Char>,
+          )
+        >
+      >('litert_lm_conversation_config_set_tools');
+  late final _litert_lm_conversation_config_set_tools =
+      _litert_lm_conversation_config_set_toolsPtr
+          .asFunction<
+            void Function(
+              ffi.Pointer<LiteRtLmConversationConfig>,
+              ffi.Pointer<ffi.Char>,
+            )
+          >();
+
+  /// Sets the initial messages for this conversation config.
+  void litert_lm_conversation_config_set_messages(
+    ffi.Pointer<LiteRtLmConversationConfig> config,
+    ffi.Pointer<ffi.Char> messages_json,
+  ) {
+    return _litert_lm_conversation_config_set_messages(config, messages_json);
+  }
+
+  late final _litert_lm_conversation_config_set_messagesPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Pointer<LiteRtLmConversationConfig>,
+            ffi.Pointer<ffi.Char>,
+          )
+        >
+      >('litert_lm_conversation_config_set_messages');
+  late final _litert_lm_conversation_config_set_messages =
+      _litert_lm_conversation_config_set_messagesPtr
+          .asFunction<
+            void Function(
+              ffi.Pointer<LiteRtLmConversationConfig>,
+              ffi.Pointer<ffi.Char>,
+            )
+          >();
+
+  /// Sets the extra context for the conversation preface.
+  void litert_lm_conversation_config_set_extra_context(
+    ffi.Pointer<LiteRtLmConversationConfig> config,
+    ffi.Pointer<ffi.Char> extra_context_json,
+  ) {
+    return _litert_lm_conversation_config_set_extra_context(
+      config,
+      extra_context_json,
+    );
+  }
+
+  late final _litert_lm_conversation_config_set_extra_contextPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Pointer<LiteRtLmConversationConfig>,
+            ffi.Pointer<ffi.Char>,
+          )
+        >
+      >('litert_lm_conversation_config_set_extra_context');
+  late final _litert_lm_conversation_config_set_extra_context =
+      _litert_lm_conversation_config_set_extra_contextPtr
+          .asFunction<
+            void Function(
+              ffi.Pointer<LiteRtLmConversationConfig>,
+              ffi.Pointer<ffi.Char>,
+            )
+          >();
+
+  /// Sets the prompt template for this conversation config.
+  void litert_lm_conversation_config_set_prompt_template(
+    ffi.Pointer<LiteRtLmConversationConfig> config,
+    ffi.Pointer<ffi.Char> prompt_template,
+  ) {
+    return _litert_lm_conversation_config_set_prompt_template(
+      config,
+      prompt_template,
+    );
+  }
+
+  late final _litert_lm_conversation_config_set_prompt_templatePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Pointer<LiteRtLmConversationConfig>,
+            ffi.Pointer<ffi.Char>,
+          )
+        >
+      >('litert_lm_conversation_config_set_prompt_template');
+  late final _litert_lm_conversation_config_set_prompt_template =
+      _litert_lm_conversation_config_set_prompt_templatePtr
+          .asFunction<
+            void Function(
+              ffi.Pointer<LiteRtLmConversationConfig>,
+              ffi.Pointer<ffi.Char>,
+            )
+          >();
+
+  /// Sets whether to enable constrained decoding for this conversation config.
+  void litert_lm_conversation_config_set_enable_constrained_decoding(
+    ffi.Pointer<LiteRtLmConversationConfig> config,
+    bool enable_constrained_decoding,
+  ) {
+    return _litert_lm_conversation_config_set_enable_constrained_decoding(
+      config,
+      enable_constrained_decoding,
+    );
+  }
+
+  late final _litert_lm_conversation_config_set_enable_constrained_decodingPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmConversationConfig>, ffi.Bool)
+        >
+      >('litert_lm_conversation_config_set_enable_constrained_decoding');
+  late final _litert_lm_conversation_config_set_enable_constrained_decoding =
+      _litert_lm_conversation_config_set_enable_constrained_decodingPtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmConversationConfig>, bool)
+          >();
+
+  /// Sets the constraint provider type for this conversation config.
+  void litert_lm_conversation_config_set_constraint_provider(
+    ffi.Pointer<LiteRtLmConversationConfig> config,
+    ffi.Pointer<ffi.UnsignedInt> provider_type,
+  ) {
+    return _litert_lm_conversation_config_set_constraint_provider(
+      config,
+      provider_type,
+    );
+  }
+
+  late final _litert_lm_conversation_config_set_constraint_providerPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Pointer<LiteRtLmConversationConfig>,
+            ffi.Pointer<ffi.UnsignedInt>,
+          )
+        >
+      >('litert_lm_conversation_config_set_constraint_provider');
+  late final _litert_lm_conversation_config_set_constraint_provider =
+      _litert_lm_conversation_config_set_constraint_providerPtr
+          .asFunction<
+            void Function(
+              ffi.Pointer<LiteRtLmConversationConfig>,
+              ffi.Pointer<ffi.UnsignedInt>,
+            )
+          >();
+
+  /// Sets whether to filter channel content from the KV cache.
+  void litert_lm_conversation_config_set_filter_channel_content_from_kv_cache(
+    ffi.Pointer<LiteRtLmConversationConfig> config,
+    bool filter_channel_content_from_kv_cache,
+  ) {
+    return _litert_lm_conversation_config_set_filter_channel_content_from_kv_cache(
+      config,
+      filter_channel_content_from_kv_cache,
+    );
+  }
+
+  late final _litert_lm_conversation_config_set_filter_channel_content_from_kv_cachePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmConversationConfig>, ffi.Bool)
+        >
+      >(
+        'litert_lm_conversation_config_set_filter_channel_content_from_kv_cache',
+      );
+  late final _litert_lm_conversation_config_set_filter_channel_content_from_kv_cache =
+      _litert_lm_conversation_config_set_filter_channel_content_from_kv_cachePtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmConversationConfig>, bool)
+          >();
+
+  /// Sets whether to stream tool call tokens.
+  void litert_lm_conversation_config_set_stream_tool_calls(
+    ffi.Pointer<LiteRtLmConversationConfig> config,
+    bool stream_tool_calls,
+    ffi.Pointer<ffi.Char> channel_name,
+  ) {
+    return _litert_lm_conversation_config_set_stream_tool_calls(
+      config,
+      stream_tool_calls,
+      channel_name,
+    );
+  }
+
+  late final _litert_lm_conversation_config_set_stream_tool_callsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Pointer<LiteRtLmConversationConfig>,
+            ffi.Bool,
+            ffi.Pointer<ffi.Char>,
+          )
+        >
+      >('litert_lm_conversation_config_set_stream_tool_calls');
+  late final _litert_lm_conversation_config_set_stream_tool_calls =
+      _litert_lm_conversation_config_set_stream_tool_callsPtr
+          .asFunction<
+            void Function(
+              ffi.Pointer<LiteRtLmConversationConfig>,
+              bool,
+              ffi.Pointer<ffi.Char>,
+            )
+          >();
+
+  /// Creates a default LiteRT LM Thinking Config (enabled with infinite budget
+  /// -1). The caller is responsible for destroying the config using
+  /// `litert_lm_thinking_config_delete`.
+  ffi.Pointer<LiteRtLmThinkingConfig> litert_lm_thinking_config_create() {
+    return _litert_lm_thinking_config_create();
+  }
+
+  late final _litert_lm_thinking_config_createPtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Pointer<LiteRtLmThinkingConfig> Function()>
+      >('litert_lm_thinking_config_create');
+  late final _litert_lm_thinking_config_create =
+      _litert_lm_thinking_config_createPtr
+          .asFunction<ffi.Pointer<LiteRtLmThinkingConfig> Function()>();
+
+  /// Destroys a LiteRT LM Thinking Config.
+  void litert_lm_thinking_config_delete(
+    ffi.Pointer<LiteRtLmThinkingConfig> config,
+  ) {
+    return _litert_lm_thinking_config_delete(config);
+  }
+
+  late final _litert_lm_thinking_config_deletePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmThinkingConfig>)
+        >
+      >('litert_lm_thinking_config_delete');
+  late final _litert_lm_thinking_config_delete =
+      _litert_lm_thinking_config_deletePtr
+          .asFunction<void Function(ffi.Pointer<LiteRtLmThinkingConfig>)>();
+
+  /// Sets whether thinking/reasoning generation is enabled.
+  void litert_lm_thinking_config_set_enable_thinking(
+    ffi.Pointer<LiteRtLmThinkingConfig> config,
+    bool enable_thinking,
+  ) {
+    return _litert_lm_thinking_config_set_enable_thinking(
+      config,
+      enable_thinking,
+    );
+  }
+
+  late final _litert_lm_thinking_config_set_enable_thinkingPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmThinkingConfig>, ffi.Bool)
+        >
+      >('litert_lm_thinking_config_set_enable_thinking');
+  late final _litert_lm_thinking_config_set_enable_thinking =
+      _litert_lm_thinking_config_set_enable_thinkingPtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmThinkingConfig>, bool)
+          >();
+
+  /// Sets the thinking token budget.
+  void litert_lm_thinking_config_set_thinking_token_budget(
+    ffi.Pointer<LiteRtLmThinkingConfig> config,
+    int thinking_token_budget,
+  ) {
+    return _litert_lm_thinking_config_set_thinking_token_budget(
+      config,
+      thinking_token_budget,
+    );
+  }
+
+  late final _litert_lm_thinking_config_set_thinking_token_budgetPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmThinkingConfig>, ffi.Int)
+        >
+      >('litert_lm_thinking_config_set_thinking_token_budget');
+  late final _litert_lm_thinking_config_set_thinking_token_budget =
+      _litert_lm_thinking_config_set_thinking_token_budgetPtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmThinkingConfig>, int)
+          >();
+
+  /// Sets the thinking config for this conversation config.
+  void litert_lm_conversation_config_set_thinking_config(
+    ffi.Pointer<LiteRtLmConversationConfig> config,
+    ffi.Pointer<LiteRtLmThinkingConfig> thinking_config,
+  ) {
+    return _litert_lm_conversation_config_set_thinking_config(
+      config,
+      thinking_config,
+    );
+  }
+
+  late final _litert_lm_conversation_config_set_thinking_configPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Pointer<LiteRtLmConversationConfig>,
+            ffi.Pointer<LiteRtLmThinkingConfig>,
+          )
+        >
+      >('litert_lm_conversation_config_set_thinking_config');
+  late final _litert_lm_conversation_config_set_thinking_config =
+      _litert_lm_conversation_config_set_thinking_configPtr
+          .asFunction<
+            void Function(
+              ffi.Pointer<LiteRtLmConversationConfig>,
+              ffi.Pointer<LiteRtLmThinkingConfig>,
+            )
+          >();
+
+  /// Destroys a LiteRT LM Conversation Config.
+  void litert_lm_conversation_config_delete(
+    ffi.Pointer<LiteRtLmConversationConfig> config,
+  ) {
+    return _litert_lm_conversation_config_delete(config);
+  }
+
+  late final _litert_lm_conversation_config_deletePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmConversationConfig>)
+        >
+      >('litert_lm_conversation_config_delete');
+  late final _litert_lm_conversation_config_delete =
+      _litert_lm_conversation_config_deletePtr
+          .asFunction<void Function(ffi.Pointer<LiteRtLmConversationConfig>)>();
+
+  /// Creates a LiteRT LM Conversation Optional Args. The caller is responsible
+  /// for destroying the optional args using
+  /// `litert_lm_conversation_optional_args_delete`.
+  ffi.Pointer<LiteRtLmConversationOptionalArgs>
+  litert_lm_conversation_optional_args_create() {
+    return _litert_lm_conversation_optional_args_create();
+  }
+
+  late final _litert_lm_conversation_optional_args_createPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<LiteRtLmConversationOptionalArgs> Function()
+        >
+      >('litert_lm_conversation_optional_args_create');
+  late final _litert_lm_conversation_optional_args_create =
+      _litert_lm_conversation_optional_args_createPtr
+          .asFunction<
+            ffi.Pointer<LiteRtLmConversationOptionalArgs> Function()
+          >();
+
+  /// Destroys a LiteRT LM Conversation Optional Args.
+  void litert_lm_conversation_optional_args_delete(
+    ffi.Pointer<LiteRtLmConversationOptionalArgs> optional_args,
+  ) {
+    return _litert_lm_conversation_optional_args_delete(optional_args);
+  }
+
+  late final _litert_lm_conversation_optional_args_deletePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmConversationOptionalArgs>)
+        >
+      >('litert_lm_conversation_optional_args_delete');
+  late final _litert_lm_conversation_optional_args_delete =
+      _litert_lm_conversation_optional_args_deletePtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmConversationOptionalArgs>)
+          >();
+
+  /// Sets the repetition penalty configuration for the per-turn conversation
+  /// optional arguments (`OptionalArgs`).
+  void litert_lm_conversation_optional_args_set_repetition_penalty_config(
+    ffi.Pointer<LiteRtLmConversationOptionalArgs> optional_args,
+    ffi.Pointer<LiteRtLmRepetitionPenaltyConfig> repetition_penalty_config,
+  ) {
+    return _litert_lm_conversation_optional_args_set_repetition_penalty_config(
+      optional_args,
+      repetition_penalty_config,
+    );
+  }
+
+  late final _litert_lm_conversation_optional_args_set_repetition_penalty_configPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Pointer<LiteRtLmConversationOptionalArgs>,
+            ffi.Pointer<LiteRtLmRepetitionPenaltyConfig>,
+          )
+        >
+      >('litert_lm_conversation_optional_args_set_repetition_penalty_config');
+  late final _litert_lm_conversation_optional_args_set_repetition_penalty_config =
+      _litert_lm_conversation_optional_args_set_repetition_penalty_configPtr
+          .asFunction<
+            void Function(
+              ffi.Pointer<LiteRtLmConversationOptionalArgs>,
+              ffi.Pointer<LiteRtLmRepetitionPenaltyConfig>,
+            )
+          >();
+
+  /// Sets the no repeat ngram configuration for the per-turn conversation
+  /// optional arguments (`OptionalArgs`).
+  void litert_lm_conversation_optional_args_set_no_repeat_ngram_config(
+    ffi.Pointer<LiteRtLmConversationOptionalArgs> optional_args,
+    ffi.Pointer<LiteRtLmNoRepeatNgramConfig> no_repeat_ngram_config,
+  ) {
+    return _litert_lm_conversation_optional_args_set_no_repeat_ngram_config(
+      optional_args,
+      no_repeat_ngram_config,
+    );
+  }
+
+  late final _litert_lm_conversation_optional_args_set_no_repeat_ngram_configPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Pointer<LiteRtLmConversationOptionalArgs>,
+            ffi.Pointer<LiteRtLmNoRepeatNgramConfig>,
+          )
+        >
+      >('litert_lm_conversation_optional_args_set_no_repeat_ngram_config');
+  late final _litert_lm_conversation_optional_args_set_no_repeat_ngram_config =
+      _litert_lm_conversation_optional_args_set_no_repeat_ngram_configPtr
+          .asFunction<
+            void Function(
+              ffi.Pointer<LiteRtLmConversationOptionalArgs>,
+              ffi.Pointer<LiteRtLmNoRepeatNgramConfig>,
+            )
+          >();
+
+  /// Sets the suppress tokens configuration for the per-turn conversation
+  /// optional arguments (`OptionalArgs`).
+  void litert_lm_conversation_optional_args_set_suppress_tokens_config(
+    ffi.Pointer<LiteRtLmConversationOptionalArgs> optional_args,
+    ffi.Pointer<LiteRtLmSuppressTokensConfig> suppress_tokens_config,
+  ) {
+    return _litert_lm_conversation_optional_args_set_suppress_tokens_config(
+      optional_args,
+      suppress_tokens_config,
+    );
+  }
+
+  late final _litert_lm_conversation_optional_args_set_suppress_tokens_configPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Pointer<LiteRtLmConversationOptionalArgs>,
+            ffi.Pointer<LiteRtLmSuppressTokensConfig>,
+          )
+        >
+      >('litert_lm_conversation_optional_args_set_suppress_tokens_config');
+  late final _litert_lm_conversation_optional_args_set_suppress_tokens_config =
+      _litert_lm_conversation_optional_args_set_suppress_tokens_configPtr
+          .asFunction<
+            void Function(
+              ffi.Pointer<LiteRtLmConversationOptionalArgs>,
+              ffi.Pointer<LiteRtLmSuppressTokensConfig>,
+            )
+          >();
+
+  /// Sets the visual token budget for the conversation optional args.
+  void litert_lm_conversation_optional_args_set_visual_token_budget(
+    ffi.Pointer<LiteRtLmConversationOptionalArgs> optional_args,
+    int visual_token_budget,
+  ) {
+    return _litert_lm_conversation_optional_args_set_visual_token_budget(
+      optional_args,
+      visual_token_budget,
+    );
+  }
+
+  late final _litert_lm_conversation_optional_args_set_visual_token_budgetPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Pointer<LiteRtLmConversationOptionalArgs>,
+            ffi.Int,
+          )
+        >
+      >('litert_lm_conversation_optional_args_set_visual_token_budget');
+  late final _litert_lm_conversation_optional_args_set_visual_token_budget =
+      _litert_lm_conversation_optional_args_set_visual_token_budgetPtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmConversationOptionalArgs>, int)
+          >();
+
+  /// Sets the maximum number of output tokens for the conversation optional
+  /// args. For thinking models, both thinking (reasoning) tokens and the final
+  /// response tokens count towards this limit.
+  void litert_lm_conversation_optional_args_set_max_output_tokens(
+    ffi.Pointer<LiteRtLmConversationOptionalArgs> optional_args,
+    int max_output_tokens,
+  ) {
+    return _litert_lm_conversation_optional_args_set_max_output_tokens(
+      optional_args,
+      max_output_tokens,
+    );
+  }
+
+  late final _litert_lm_conversation_optional_args_set_max_output_tokensPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Pointer<LiteRtLmConversationOptionalArgs>,
+            ffi.Int,
+          )
+        >
+      >('litert_lm_conversation_optional_args_set_max_output_tokens');
+  late final _litert_lm_conversation_optional_args_set_max_output_tokens =
+      _litert_lm_conversation_optional_args_set_max_output_tokensPtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmConversationOptionalArgs>, int)
+          >();
+
+  /// Sets the thinking config for the conversation optional args.
+  void litert_lm_conversation_optional_args_set_thinking_config(
+    ffi.Pointer<LiteRtLmConversationOptionalArgs> optional_args,
+    ffi.Pointer<LiteRtLmThinkingConfig> thinking_config,
+  ) {
+    return _litert_lm_conversation_optional_args_set_thinking_config(
+      optional_args,
+      thinking_config,
+    );
+  }
+
+  late final _litert_lm_conversation_optional_args_set_thinking_configPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Pointer<LiteRtLmConversationOptionalArgs>,
+            ffi.Pointer<LiteRtLmThinkingConfig>,
+          )
+        >
+      >('litert_lm_conversation_optional_args_set_thinking_config');
+  late final _litert_lm_conversation_optional_args_set_thinking_config =
+      _litert_lm_conversation_optional_args_set_thinking_configPtr
+          .asFunction<
+            void Function(
+              ffi.Pointer<LiteRtLmConversationOptionalArgs>,
+              ffi.Pointer<LiteRtLmThinkingConfig>,
+            )
+          >();
+
+  /// Sets the constraint for the conversation optional args.
+  void litert_lm_conversation_optional_args_set_constraint(
+    ffi.Pointer<LiteRtLmConversationOptionalArgs> optional_args,
+    LiteRtLmConstraintType constraint_type,
+    ffi.Pointer<ffi.Char> constraint_string,
+  ) {
+    return _litert_lm_conversation_optional_args_set_constraint(
+      optional_args,
+      constraint_type.value,
+      constraint_string,
+    );
+  }
+
+  late final _litert_lm_conversation_optional_args_set_constraintPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Pointer<LiteRtLmConversationOptionalArgs>,
+            ffi.UnsignedInt,
+            ffi.Pointer<ffi.Char>,
+          )
+        >
+      >('litert_lm_conversation_optional_args_set_constraint');
+  late final _litert_lm_conversation_optional_args_set_constraint =
+      _litert_lm_conversation_optional_args_set_constraintPtr
+          .asFunction<
+            void Function(
+              ffi.Pointer<LiteRtLmConversationOptionalArgs>,
+              int,
+              ffi.Pointer<ffi.Char>,
+            )
+          >();
+
+  /// Creates a LiteRT LM Conversation. The caller is responsible for destroying
+  /// the conversation using `litert_lm_conversation_delete`.
+  ffi.Pointer<LiteRtLmConversation> litert_lm_conversation_create(
+    ffi.Pointer<LiteRtLmEngine> engine,
+    ffi.Pointer<LiteRtLmConversationConfig> config,
+  ) {
+    return _litert_lm_conversation_create(engine, config);
+  }
+
+  late final _litert_lm_conversation_createPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<LiteRtLmConversation> Function(
+            ffi.Pointer<LiteRtLmEngine>,
+            ffi.Pointer<LiteRtLmConversationConfig>,
+          )
+        >
+      >('litert_lm_conversation_create');
+  late final _litert_lm_conversation_create = _litert_lm_conversation_createPtr
+      .asFunction<
+        ffi.Pointer<LiteRtLmConversation> Function(
+          ffi.Pointer<LiteRtLmEngine>,
+          ffi.Pointer<LiteRtLmConversationConfig>,
+        )
+      >();
+
+  /// Destroys a LiteRT LM Conversation.
+  void litert_lm_conversation_delete(
+    ffi.Pointer<LiteRtLmConversation> conversation,
+  ) {
+    return _litert_lm_conversation_delete(conversation);
+  }
+
+  late final _litert_lm_conversation_deletePtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Void Function(ffi.Pointer<LiteRtLmConversation>)>
+      >('litert_lm_conversation_delete');
+  late final _litert_lm_conversation_delete = _litert_lm_conversation_deletePtr
+      .asFunction<void Function(ffi.Pointer<LiteRtLmConversation>)>();
+
+  /// Clones a LiteRT LM Conversation, duplicating its prefilled state. The
+  /// caller is responsible for destroying the cloned conversation using
+  /// `litert_lm_conversation_delete`.
+  ffi.Pointer<LiteRtLmConversation> litert_lm_conversation_clone(
+    ffi.Pointer<LiteRtLmConversation> conversation,
+  ) {
+    return _litert_lm_conversation_clone(conversation);
+  }
+
+  late final _litert_lm_conversation_clonePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<LiteRtLmConversation> Function(
+            ffi.Pointer<LiteRtLmConversation>,
+          )
+        >
+      >('litert_lm_conversation_clone');
+  late final _litert_lm_conversation_clone = _litert_lm_conversation_clonePtr
+      .asFunction<
+        ffi.Pointer<LiteRtLmConversation> Function(
+          ffi.Pointer<LiteRtLmConversation>,
+        )
+      >();
+
+  /// Sends a message to the conversation and returns the response. This is a
+  /// blocking call.
+  ffi.Pointer<LiteRtLmJsonResponse> litert_lm_conversation_send_message(
+    ffi.Pointer<LiteRtLmConversation> conversation,
+    ffi.Pointer<ffi.Char> message_json,
+    ffi.Pointer<ffi.Char> extra_context,
+    ffi.Pointer<LiteRtLmConversationOptionalArgs> optional_args,
+  ) {
+    return _litert_lm_conversation_send_message(
+      conversation,
+      message_json,
+      extra_context,
+      optional_args,
+    );
+  }
+
+  late final _litert_lm_conversation_send_messagePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<LiteRtLmJsonResponse> Function(
+            ffi.Pointer<LiteRtLmConversation>,
+            ffi.Pointer<ffi.Char>,
+            ffi.Pointer<ffi.Char>,
+            ffi.Pointer<LiteRtLmConversationOptionalArgs>,
+          )
+        >
+      >('litert_lm_conversation_send_message');
+  late final _litert_lm_conversation_send_message =
+      _litert_lm_conversation_send_messagePtr
+          .asFunction<
+            ffi.Pointer<LiteRtLmJsonResponse> Function(
+              ffi.Pointer<LiteRtLmConversation>,
+              ffi.Pointer<ffi.Char>,
+              ffi.Pointer<ffi.Char>,
+              ffi.Pointer<LiteRtLmConversationOptionalArgs>,
+            )
+          >();
+
+  /// Destroys a LiteRT LM Json Response object.
+  void litert_lm_json_response_delete(
+    ffi.Pointer<LiteRtLmJsonResponse> response,
+  ) {
+    return _litert_lm_json_response_delete(response);
+  }
+
+  late final _litert_lm_json_response_deletePtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Void Function(ffi.Pointer<LiteRtLmJsonResponse>)>
+      >('litert_lm_json_response_delete');
+  late final _litert_lm_json_response_delete =
+      _litert_lm_json_response_deletePtr
+          .asFunction<void Function(ffi.Pointer<LiteRtLmJsonResponse>)>();
+
+  /// Returns the JSON response string from a response object.
+  ffi.Pointer<ffi.Char> litert_lm_json_response_get_string(
+    ffi.Pointer<LiteRtLmJsonResponse> response,
+  ) {
+    return _litert_lm_json_response_get_string(response);
+  }
+
+  late final _litert_lm_json_response_get_stringPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<ffi.Char> Function(ffi.Pointer<LiteRtLmJsonResponse>)
+        >
+      >('litert_lm_json_response_get_string');
+  late final _litert_lm_json_response_get_string =
+      _litert_lm_json_response_get_stringPtr
+          .asFunction<
+            ffi.Pointer<ffi.Char> Function(ffi.Pointer<LiteRtLmJsonResponse>)
+          >();
+
+  /// Sends a message to the conversation and streams the response via a
+  /// callback. This is a non-blocking call that will invoke the callback from a
+  /// background thread for each chunk.
+  int litert_lm_conversation_send_message_stream(
+    ffi.Pointer<LiteRtLmConversation> conversation,
+    ffi.Pointer<ffi.Char> message_json,
+    ffi.Pointer<ffi.Char> extra_context,
+    ffi.Pointer<LiteRtLmConversationOptionalArgs> optional_args,
+    LiteRtLmStreamCallback callback,
+    ffi.Pointer<ffi.Void> callback_data,
+  ) {
+    return _litert_lm_conversation_send_message_stream(
+      conversation,
+      message_json,
+      extra_context,
+      optional_args,
+      callback,
+      callback_data,
+    );
+  }
+
+  late final _litert_lm_conversation_send_message_streamPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(
+            ffi.Pointer<LiteRtLmConversation>,
+            ffi.Pointer<ffi.Char>,
+            ffi.Pointer<ffi.Char>,
+            ffi.Pointer<LiteRtLmConversationOptionalArgs>,
+            LiteRtLmStreamCallback,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('litert_lm_conversation_send_message_stream');
+  late final _litert_lm_conversation_send_message_stream =
+      _litert_lm_conversation_send_message_streamPtr
+          .asFunction<
+            int Function(
+              ffi.Pointer<LiteRtLmConversation>,
+              ffi.Pointer<ffi.Char>,
+              ffi.Pointer<ffi.Char>,
+              ffi.Pointer<LiteRtLmConversationOptionalArgs>,
+              LiteRtLmStreamCallback,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  /// Renders the message into a string according to the template.
+  ffi.Pointer<ffi.Char> litert_lm_conversation_render_message_to_string(
+    ffi.Pointer<LiteRtLmConversation> conversation,
+    ffi.Pointer<ffi.Char> message_json,
+  ) {
+    return _litert_lm_conversation_render_message_to_string(
+      conversation,
+      message_json,
+    );
+  }
+
+  late final _litert_lm_conversation_render_message_to_stringPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<ffi.Char> Function(
+            ffi.Pointer<LiteRtLmConversation>,
+            ffi.Pointer<ffi.Char>,
+          )
+        >
+      >('litert_lm_conversation_render_message_to_string');
+  late final _litert_lm_conversation_render_message_to_string =
+      _litert_lm_conversation_render_message_to_stringPtr
+          .asFunction<
+            ffi.Pointer<ffi.Char> Function(
+              ffi.Pointer<LiteRtLmConversation>,
+              ffi.Pointer<ffi.Char>,
+            )
+          >();
+
+  /// Renders the preface into a string according to the template.
+  ffi.Pointer<ffi.Char> litert_lm_conversation_render_preface_to_string(
+    ffi.Pointer<LiteRtLmConversation> conversation,
+  ) {
+    return _litert_lm_conversation_render_preface_to_string(conversation);
+  }
+
+  late final _litert_lm_conversation_render_preface_to_stringPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<ffi.Char> Function(ffi.Pointer<LiteRtLmConversation>)
+        >
+      >('litert_lm_conversation_render_preface_to_string');
+  late final _litert_lm_conversation_render_preface_to_string =
+      _litert_lm_conversation_render_preface_to_stringPtr
+          .asFunction<
+            ffi.Pointer<ffi.Char> Function(ffi.Pointer<LiteRtLmConversation>)
+          >();
+
+  /// Cancels the ongoing inference process, for asynchronous inference.
+  void litert_lm_conversation_cancel_process(
+    ffi.Pointer<LiteRtLmConversation> conversation,
+  ) {
+    return _litert_lm_conversation_cancel_process(conversation);
+  }
+
+  late final _litert_lm_conversation_cancel_processPtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Void Function(ffi.Pointer<LiteRtLmConversation>)>
+      >('litert_lm_conversation_cancel_process');
+  late final _litert_lm_conversation_cancel_process =
+      _litert_lm_conversation_cancel_processPtr
+          .asFunction<void Function(ffi.Pointer<LiteRtLmConversation>)>();
+
+  /// Retrieves the benchmark information from the conversation. The caller is
+  /// responsible for destroying the benchmark info using
+  /// `litert_lm_benchmark_info_delete`.
+  ffi.Pointer<LiteRtLmBenchmarkInfo> litert_lm_conversation_get_benchmark_info(
+    ffi.Pointer<LiteRtLmConversation> conversation,
+  ) {
+    return _litert_lm_conversation_get_benchmark_info(conversation);
+  }
+
+  late final _litert_lm_conversation_get_benchmark_infoPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<LiteRtLmBenchmarkInfo> Function(
+            ffi.Pointer<LiteRtLmConversation>,
+          )
+        >
+      >('litert_lm_conversation_get_benchmark_info');
+  late final _litert_lm_conversation_get_benchmark_info =
+      _litert_lm_conversation_get_benchmark_infoPtr
+          .asFunction<
+            ffi.Pointer<LiteRtLmBenchmarkInfo> Function(
+              ffi.Pointer<LiteRtLmConversation>,
+            )
+          >();
+
+  /// Gets the number of tokens in the conversation KV Cache (prefill + decode).
+  /// Returns the number of tokens, or a negative value on failure.
+  int litert_lm_conversation_get_token_count(
+    ffi.Pointer<LiteRtLmConversation> conversation,
+  ) {
+    return _litert_lm_conversation_get_token_count(conversation);
+  }
+
+  late final _litert_lm_conversation_get_token_countPtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Int Function(ffi.Pointer<LiteRtLmConversation>)>
+      >('litert_lm_conversation_get_token_count');
+  late final _litert_lm_conversation_get_token_count =
+      _litert_lm_conversation_get_token_countPtr
+          .asFunction<int Function(ffi.Pointer<LiteRtLmConversation>)>();
+
+  /// Loads a LiteRT-LM file from the given path for capability queries. Returns
+  /// NULL if the file cannot be opened.
+  ffi.Pointer<LiteRtLmLoadedFile> litert_lm_loaded_file_create(
+    ffi.Pointer<ffi.Char> litertlm_path,
+  ) {
+    return _litert_lm_loaded_file_create(litertlm_path);
+  }
+
+  late final _litert_lm_loaded_file_createPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<LiteRtLmLoadedFile> Function(ffi.Pointer<ffi.Char>)
+        >
+      >('litert_lm_loaded_file_create');
+  late final _litert_lm_loaded_file_create = _litert_lm_loaded_file_createPtr
+      .asFunction<
+        ffi.Pointer<LiteRtLmLoadedFile> Function(ffi.Pointer<ffi.Char>)
+      >();
+
+  /// Deletes a loaded LiteRT-LM file.
+  void litert_lm_loaded_file_delete(
+    ffi.Pointer<LiteRtLmLoadedFile> loaded_file,
+  ) {
+    return _litert_lm_loaded_file_delete(loaded_file);
+  }
+
+  late final _litert_lm_loaded_file_deletePtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Void Function(ffi.Pointer<LiteRtLmLoadedFile>)>
+      >('litert_lm_loaded_file_delete');
+  late final _litert_lm_loaded_file_delete = _litert_lm_loaded_file_deletePtr
+      .asFunction<void Function(ffi.Pointer<LiteRtLmLoadedFile>)>();
+
+  /// Returns true if the loaded LiteRT-LM file supports speculative decoding.
+  bool litert_lm_loaded_file_has_speculative_decoding_support(
+    ffi.Pointer<LiteRtLmLoadedFile> loaded_file,
+  ) {
+    return _litert_lm_loaded_file_has_speculative_decoding_support(loaded_file);
+  }
+
+  late final _litert_lm_loaded_file_has_speculative_decoding_supportPtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Bool Function(ffi.Pointer<LiteRtLmLoadedFile>)>
+      >('litert_lm_loaded_file_has_speculative_decoding_support');
+  late final _litert_lm_loaded_file_has_speculative_decoding_support =
+      _litert_lm_loaded_file_has_speculative_decoding_supportPtr
+          .asFunction<bool Function(ffi.Pointer<LiteRtLmLoadedFile>)>();
+
+  /// Returns true if the model supports thinking / reasoning steps. If the
+  /// metadata is not explicitly set in the model, this returns false.
+  bool litert_lm_loaded_file_supports_thinking(
+    ffi.Pointer<LiteRtLmLoadedFile> loaded_file,
+  ) {
+    return _litert_lm_loaded_file_supports_thinking(loaded_file);
+  }
+
+  late final _litert_lm_loaded_file_supports_thinkingPtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Bool Function(ffi.Pointer<LiteRtLmLoadedFile>)>
+      >('litert_lm_loaded_file_supports_thinking');
+  late final _litert_lm_loaded_file_supports_thinking =
+      _litert_lm_loaded_file_supports_thinkingPtr
+          .asFunction<bool Function(ffi.Pointer<LiteRtLmLoadedFile>)>();
+
+  /// Returns true if the model supports function calling / tool use. If the
+  /// metadata is not explicitly set in the model, this returns false.
+  bool litert_lm_loaded_file_supports_function_calling(
+    ffi.Pointer<LiteRtLmLoadedFile> loaded_file,
+  ) {
+    return _litert_lm_loaded_file_supports_function_calling(loaded_file);
+  }
+
+  late final _litert_lm_loaded_file_supports_function_callingPtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Bool Function(ffi.Pointer<LiteRtLmLoadedFile>)>
+      >('litert_lm_loaded_file_supports_function_calling');
+  late final _litert_lm_loaded_file_supports_function_calling =
+      _litert_lm_loaded_file_supports_function_callingPtr
+          .asFunction<bool Function(ffi.Pointer<LiteRtLmLoadedFile>)>();
+
+  /// Returns the default sampler type for the model.
+  LiteRtLmSamplerType litert_lm_loaded_file_sampler_type(
+    ffi.Pointer<LiteRtLmLoadedFile> loaded_file,
+  ) {
+    return LiteRtLmSamplerType.fromValue(
+      _litert_lm_loaded_file_sampler_type(loaded_file),
+    );
+  }
+
+  late final _litert_lm_loaded_file_sampler_typePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.UnsignedInt Function(ffi.Pointer<LiteRtLmLoadedFile>)
+        >
+      >('litert_lm_loaded_file_sampler_type');
+  late final _litert_lm_loaded_file_sampler_type =
+      _litert_lm_loaded_file_sampler_typePtr
+          .asFunction<int Function(ffi.Pointer<LiteRtLmLoadedFile>)>();
+
+  /// Returns the default sampler temperature for the model.
+  double litert_lm_loaded_file_sampler_temperature(
+    ffi.Pointer<LiteRtLmLoadedFile> loaded_file,
+  ) {
+    return _litert_lm_loaded_file_sampler_temperature(loaded_file);
+  }
+
+  late final _litert_lm_loaded_file_sampler_temperaturePtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Float Function(ffi.Pointer<LiteRtLmLoadedFile>)>
+      >('litert_lm_loaded_file_sampler_temperature');
+  late final _litert_lm_loaded_file_sampler_temperature =
+      _litert_lm_loaded_file_sampler_temperaturePtr
+          .asFunction<double Function(ffi.Pointer<LiteRtLmLoadedFile>)>();
+
+  /// Returns the default sampler top_k for the model.
+  int litert_lm_loaded_file_sampler_top_k(
+    ffi.Pointer<LiteRtLmLoadedFile> loaded_file,
+  ) {
+    return _litert_lm_loaded_file_sampler_top_k(loaded_file);
+  }
+
+  late final _litert_lm_loaded_file_sampler_top_kPtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<LiteRtLmLoadedFile>)>
+      >('litert_lm_loaded_file_sampler_top_k');
+  late final _litert_lm_loaded_file_sampler_top_k =
+      _litert_lm_loaded_file_sampler_top_kPtr
+          .asFunction<int Function(ffi.Pointer<LiteRtLmLoadedFile>)>();
+
+  /// Returns the default sampler top_p for the model.
+  double litert_lm_loaded_file_sampler_top_p(
+    ffi.Pointer<LiteRtLmLoadedFile> loaded_file,
+  ) {
+    return _litert_lm_loaded_file_sampler_top_p(loaded_file);
+  }
+
+  late final _litert_lm_loaded_file_sampler_top_pPtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Float Function(ffi.Pointer<LiteRtLmLoadedFile>)>
+      >('litert_lm_loaded_file_sampler_top_p');
+  late final _litert_lm_loaded_file_sampler_top_p =
+      _litert_lm_loaded_file_sampler_top_pPtr
+          .asFunction<double Function(ffi.Pointer<LiteRtLmLoadedFile>)>();
+
+  /// Returns true if the input modality is supported.
+  bool litert_lm_loaded_file_supports_input_modality(
+    ffi.Pointer<LiteRtLmLoadedFile> loaded_file,
+    LiteRtLmModality modality,
+  ) {
+    return _litert_lm_loaded_file_supports_input_modality(
+      loaded_file,
+      modality.value,
+    );
+  }
+
+  late final _litert_lm_loaded_file_supports_input_modalityPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Bool Function(ffi.Pointer<LiteRtLmLoadedFile>, ffi.UnsignedInt)
+        >
+      >('litert_lm_loaded_file_supports_input_modality');
+  late final _litert_lm_loaded_file_supports_input_modality =
+      _litert_lm_loaded_file_supports_input_modalityPtr
+          .asFunction<bool Function(ffi.Pointer<LiteRtLmLoadedFile>, int)>();
+
+  /// Returns the maximum vision token budget for the model. Returns -1 if the
+  /// model does not support vision or if the budget is not defined.
+  int litert_lm_loaded_file_max_vision_token_budget(
+    ffi.Pointer<LiteRtLmLoadedFile> loaded_file,
+  ) {
+    return _litert_lm_loaded_file_max_vision_token_budget(loaded_file);
+  }
+
+  late final _litert_lm_loaded_file_max_vision_token_budgetPtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<LiteRtLmLoadedFile>)>
+      >('litert_lm_loaded_file_max_vision_token_budget');
+  late final _litert_lm_loaded_file_max_vision_token_budget =
+      _litert_lm_loaded_file_max_vision_token_budgetPtr
+          .asFunction<int Function(ffi.Pointer<LiteRtLmLoadedFile>)>();
+
+  /// Returns the maximum supported context tokens for the loaded LiteRT-LM
+  /// file. - If the model is static (litert_lm_loaded_file_is_dynamic_context
+  /// is false), this is the fixed context size determined by the model graph. -
+  /// If the model is dynamic (litert_lm_loaded_file_is_dynamic_context is
+  /// true), this is the largest context size that can be set. Returns 0 if not
+  /// found or on error.
+  int litert_lm_loaded_file_max_context_tokens(
+    ffi.Pointer<LiteRtLmLoadedFile> loaded_file,
+  ) {
+    return _litert_lm_loaded_file_max_context_tokens(loaded_file);
+  }
+
+  late final _litert_lm_loaded_file_max_context_tokensPtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Uint32 Function(ffi.Pointer<LiteRtLmLoadedFile>)>
+      >('litert_lm_loaded_file_max_context_tokens');
+  late final _litert_lm_loaded_file_max_context_tokens =
+      _litert_lm_loaded_file_max_context_tokensPtr
+          .asFunction<int Function(ffi.Pointer<LiteRtLmLoadedFile>)>();
+
+  /// Returns whether the model has dynamic context. Dynamic context means the
+  /// context size can be configured by the caller up to the maximum limit.
+  bool litert_lm_loaded_file_is_dynamic_context(
+    ffi.Pointer<LiteRtLmLoadedFile> loaded_file,
+  ) {
+    return _litert_lm_loaded_file_is_dynamic_context(loaded_file);
+  }
+
+  late final _litert_lm_loaded_file_is_dynamic_contextPtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Bool Function(ffi.Pointer<LiteRtLmLoadedFile>)>
+      >('litert_lm_loaded_file_is_dynamic_context');
+  late final _litert_lm_loaded_file_is_dynamic_context =
+      _litert_lm_loaded_file_is_dynamic_contextPtr
+          .asFunction<bool Function(ffi.Pointer<LiteRtLmLoadedFile>)>();
+
+  /// Returns the number of supported vision token lengths. Writes up to
+  /// `max_size` lengths to the provided array. If lengths is NULL, only returns
+  /// the count. Returns -1 if the model does not support vision.
+  int litert_lm_loaded_file_vision_signature_selection(
+    ffi.Pointer<LiteRtLmLoadedFile> loaded_file,
+    ffi.Pointer<ffi.Int32> lengths,
+    int max_size,
+  ) {
+    return _litert_lm_loaded_file_vision_signature_selection(
+      loaded_file,
+      lengths,
+      max_size,
+    );
+  }
+
+  late final _litert_lm_loaded_file_vision_signature_selectionPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int32 Function(
+            ffi.Pointer<LiteRtLmLoadedFile>,
+            ffi.Pointer<ffi.Int32>,
+            ffi.Int32,
+          )
+        >
+      >('litert_lm_loaded_file_vision_signature_selection');
+  late final _litert_lm_loaded_file_vision_signature_selection =
+      _litert_lm_loaded_file_vision_signature_selectionPtr
+          .asFunction<
+            int Function(
+              ffi.Pointer<LiteRtLmLoadedFile>,
+              ffi.Pointer<ffi.Int32>,
+              int,
+            )
+          >();
+
+  /// Returns the number of supported backends for a given modality, ordered by
+  /// priority (first entry is the default/highest-priority backend). Writes up
+  /// to `max_size` backends to the provided `backends` array. If `backends` is
+  /// NULL, only returns the count of supported backends. Returns 0 if the
+  /// modality is not supported.
+  int litert_lm_loaded_file_modality_supported_backends(
+    ffi.Pointer<LiteRtLmLoadedFile> loaded_file,
+    LiteRtLmModality modality,
+    ffi.Pointer<ffi.UnsignedInt> backends,
+    int max_size,
+  ) {
+    return _litert_lm_loaded_file_modality_supported_backends(
+      loaded_file,
+      modality.value,
+      backends,
+      max_size,
+    );
+  }
+
+  late final _litert_lm_loaded_file_modality_supported_backendsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int32 Function(
+            ffi.Pointer<LiteRtLmLoadedFile>,
+            ffi.UnsignedInt,
+            ffi.Pointer<ffi.UnsignedInt>,
+            ffi.Int32,
+          )
+        >
+      >('litert_lm_loaded_file_modality_supported_backends');
+  late final _litert_lm_loaded_file_modality_supported_backends =
+      _litert_lm_loaded_file_modality_supported_backendsPtr
+          .asFunction<
+            int Function(
+              ffi.Pointer<LiteRtLmLoadedFile>,
+              int,
+              ffi.Pointer<ffi.UnsignedInt>,
+              int,
+            )
+          >();
+
+  /// Returns the detected NPU brand of the model for a given modality, or
+  /// kLiteRtLmNpuBrandUnknown if not NPU-compiled for this modality.
+  LiteRtLmNpuBrand litert_lm_loaded_file_modality_npu_brand(
+    ffi.Pointer<LiteRtLmLoadedFile> loaded_file,
+    LiteRtLmModality modality,
+  ) {
+    return LiteRtLmNpuBrand.fromValue(
+      _litert_lm_loaded_file_modality_npu_brand(loaded_file, modality.value),
+    );
+  }
+
+  late final _litert_lm_loaded_file_modality_npu_brandPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.UnsignedInt Function(
+            ffi.Pointer<LiteRtLmLoadedFile>,
+            ffi.UnsignedInt,
+          )
+        >
+      >('litert_lm_loaded_file_modality_npu_brand');
+  late final _litert_lm_loaded_file_modality_npu_brand =
+      _litert_lm_loaded_file_modality_npu_brandPtr
+          .asFunction<int Function(ffi.Pointer<LiteRtLmLoadedFile>, int)>();
+
+  /// Returns the target SoC name for a given modality (e.g. "SM8750",
+  /// "Tensor_G5"), or NULL if not specified or not NPU-compiled. The returned
+  /// pointer is valid as long as the loaded_file is valid.
+  ffi.Pointer<ffi.Char> litert_lm_loaded_file_modality_soc_name(
+    ffi.Pointer<LiteRtLmLoadedFile> loaded_file,
+    LiteRtLmModality modality,
+  ) {
+    return _litert_lm_loaded_file_modality_soc_name(
+      loaded_file,
+      modality.value,
+    );
+  }
+
+  late final _litert_lm_loaded_file_modality_soc_namePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<ffi.Char> Function(
+            ffi.Pointer<LiteRtLmLoadedFile>,
+            ffi.UnsignedInt,
+          )
+        >
+      >('litert_lm_loaded_file_modality_soc_name');
+  late final _litert_lm_loaded_file_modality_soc_name =
+      _litert_lm_loaded_file_modality_soc_namePtr
+          .asFunction<
+            ffi.Pointer<ffi.Char> Function(ffi.Pointer<LiteRtLmLoadedFile>, int)
+          >();
+
+  /// Returns the minimum LiteRT-LM runtime version required to run this model.
+  /// The returned pointer is valid as long as the loaded_file is valid. Returns
+  /// NULL if the version requirement is not defined.
+  ffi.Pointer<ffi.Char> litert_lm_loaded_file_min_runtime_version(
+    ffi.Pointer<LiteRtLmLoadedFile> loaded_file,
+  ) {
+    return _litert_lm_loaded_file_min_runtime_version(loaded_file);
+  }
+
+  late final _litert_lm_loaded_file_min_runtime_versionPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<ffi.Char> Function(ffi.Pointer<LiteRtLmLoadedFile>)
+        >
+      >('litert_lm_loaded_file_min_runtime_version');
+  late final _litert_lm_loaded_file_min_runtime_version =
+      _litert_lm_loaded_file_min_runtime_versionPtr
+          .asFunction<
+            ffi.Pointer<ffi.Char> Function(ffi.Pointer<LiteRtLmLoadedFile>)
+          >();
+
+  /// Returns the model type of the loaded LiteRT-LM file.
+  LiteRtLmModelType litert_lm_loaded_file_model_type(
+    ffi.Pointer<LiteRtLmLoadedFile> loaded_file,
+  ) {
+    return LiteRtLmModelType.fromValue(
+      _litert_lm_loaded_file_model_type(loaded_file),
+    );
+  }
+
+  late final _litert_lm_loaded_file_model_typePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.UnsignedInt Function(ffi.Pointer<LiteRtLmLoadedFile>)
+        >
+      >('litert_lm_loaded_file_model_type');
+  late final _litert_lm_loaded_file_model_type =
+      _litert_lm_loaded_file_model_typePtr
+          .asFunction<int Function(ffi.Pointer<LiteRtLmLoadedFile>)>();
+
+  /// Returns the output embedding dimension for the model. Returns -1 if the
+  /// model is not an embedding model or if the dimension is not defined.
+  int litert_lm_loaded_file_embedding_dimension(
+    ffi.Pointer<LiteRtLmLoadedFile> loaded_file,
+  ) {
+    return _litert_lm_loaded_file_embedding_dimension(loaded_file);
+  }
+
+  late final _litert_lm_loaded_file_embedding_dimensionPtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<LiteRtLmLoadedFile>)>
+      >('litert_lm_loaded_file_embedding_dimension');
+  late final _litert_lm_loaded_file_embedding_dimension =
+      _litert_lm_loaded_file_embedding_dimensionPtr
+          .asFunction<int Function(ffi.Pointer<LiteRtLmLoadedFile>)>();
+
+  /// Returns the number of supported embedding signature sequence lengths.
+  /// Writes up to `max_size` lengths to the provided `lengths` array. If
+  /// `lengths` is NULL, only returns the count. Returns -1 if the model is not
+  /// an embedding model or if signature lengths are not defined.
+  int litert_lm_loaded_file_embedding_signature_selection(
+    ffi.Pointer<LiteRtLmLoadedFile> loaded_file,
+    ffi.Pointer<ffi.Int32> lengths,
+    int max_size,
+  ) {
+    return _litert_lm_loaded_file_embedding_signature_selection(
+      loaded_file,
+      lengths,
+      max_size,
+    );
+  }
+
+  late final _litert_lm_loaded_file_embedding_signature_selectionPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int32 Function(
+            ffi.Pointer<LiteRtLmLoadedFile>,
+            ffi.Pointer<ffi.Int32>,
+            ffi.Int32,
+          )
+        >
+      >('litert_lm_loaded_file_embedding_signature_selection');
+  late final _litert_lm_loaded_file_embedding_signature_selection =
+      _litert_lm_loaded_file_embedding_signature_selectionPtr
+          .asFunction<
+            int Function(
+              ffi.Pointer<LiteRtLmLoadedFile>,
+              ffi.Pointer<ffi.Int32>,
+              int,
+            )
+          >();
+
+  /// Returns the last error message recorded on the calling thread.
+  ffi.Pointer<ffi.Char> litert_lm_get_last_error_message() {
+    return _litert_lm_get_last_error_message();
+  }
+
+  late final _litert_lm_get_last_error_messagePtr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>(
+        'litert_lm_get_last_error_message',
+      );
+  late final _litert_lm_get_last_error_message =
+      _litert_lm_get_last_error_messagePtr
+          .asFunction<ffi.Pointer<ffi.Char> Function()>();
+
+  /// Returns the last error code recorded on the calling thread.
+  int litert_lm_get_last_error_code() {
+    return _litert_lm_get_last_error_code();
+  }
+
+  late final _litert_lm_get_last_error_codePtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function()>>(
+        'litert_lm_get_last_error_code',
+      );
+  late final _litert_lm_get_last_error_code = _litert_lm_get_last_error_codePtr
+      .asFunction<int Function()>();
+
+  /// Clears the last error recorded on the calling thread, resetting the error
+  /// message to NULL and the error code to `kLiteRtLmStatusOk` (0).
+  void litert_lm_clear_last_error() {
+    return _litert_lm_clear_last_error();
+  }
+
+  late final _litert_lm_clear_last_errorPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function()>>(
+        'litert_lm_clear_last_error',
+      );
+  late final _litert_lm_clear_last_error = _litert_lm_clear_last_errorPtr
+      .asFunction<void Function()>();
+
+  /// Versioned together with the bundled runtime. A v0.12 bundle must fail
+  /// loading.
+  int lrlm_bridge_abi_version() {
+    return _lrlm_bridge_abi_version();
+  }
+
+  late final _lrlm_bridge_abi_versionPtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function()>>(
+        'lrlm_bridge_abi_version',
+      );
+  late final _lrlm_bridge_abi_version = _lrlm_bridge_abi_versionPtr
+      .asFunction<int Function()>();
+
+  ffi.Pointer<ffi.Char> lrlm_runtime_version() {
+    return _lrlm_runtime_version();
+  }
+
+  late final _lrlm_runtime_versionPtr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>(
+        'lrlm_runtime_version',
+      );
+  late final _lrlm_runtime_version = _lrlm_runtime_versionPtr
+      .asFunction<ffi.Pointer<ffi.Char> Function()>();
+
+  ffi.Pointer<ffi.Char> lrlm_runtime_commit() {
+    return _lrlm_runtime_commit();
+  }
+
+  late final _lrlm_runtime_commitPtr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>(
+        'lrlm_runtime_commit',
+      );
+  late final _lrlm_runtime_commit = _lrlm_runtime_commitPtr
+      .asFunction<ffi.Pointer<ffi.Char> Function()>();
+
+  /// IDs are process-wide, monotonically allocated and never reused. No
+  /// borrowed native pointer crosses an isolate port or an asynchronous Dart
+  /// callback.
+  int lrlm_operation_create() {
+    return _lrlm_operation_create();
+  }
+
+  late final _lrlm_operation_createPtr =
+      _lookup<ffi.NativeFunction<ffi.Uint64 Function()>>(
+        'lrlm_operation_create',
+      );
+  late final _lrlm_operation_create = _lrlm_operation_createPtr
+      .asFunction<int Function()>();
+
+  int lrlm_operation_start_session(
+    int id,
+    ffi.Pointer<LiteRtLmSession> session,
+    ffi.Pointer<ffi.Pointer<LiteRtLmInputData>> inputs,
+    int count,
+  ) {
+    return _lrlm_operation_start_session(id, session, inputs, count);
+  }
+
+  late final _lrlm_operation_start_sessionPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(
+            ffi.Uint64,
+            ffi.Pointer<LiteRtLmSession>,
+            ffi.Pointer<ffi.Pointer<LiteRtLmInputData>>,
+            ffi.Size,
+          )
+        >
+      >('lrlm_operation_start_session');
+  late final _lrlm_operation_start_session = _lrlm_operation_start_sessionPtr
+      .asFunction<
+        int Function(
+          int,
+          ffi.Pointer<LiteRtLmSession>,
+          ffi.Pointer<ffi.Pointer<LiteRtLmInputData>>,
+          int,
+        )
+      >();
+
+  int lrlm_operation_start_conversation(
+    int id,
+    ffi.Pointer<LiteRtLmConversation> conversation,
+    ffi.Pointer<ffi.Char> messages_json,
+  ) {
+    return _lrlm_operation_start_conversation(id, conversation, messages_json);
+  }
+
+  late final _lrlm_operation_start_conversationPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(
+            ffi.Uint64,
+            ffi.Pointer<LiteRtLmConversation>,
+            ffi.Pointer<ffi.Char>,
+          )
+        >
+      >('lrlm_operation_start_conversation');
+  late final _lrlm_operation_start_conversation =
+      _lrlm_operation_start_conversationPtr
+          .asFunction<
+            int Function(
+              int,
+              ffi.Pointer<LiteRtLmConversation>,
+              ffi.Pointer<ffi.Char>,
+            )
+          >();
+
+  /// Cancelling delivery does NOT prove the producer stopped. The caller also
+  /// requests upstream cancellation, drains events, and joins via handle
+  /// deletion.
+  void lrlm_operation_cancel(int id) {
+    return _lrlm_operation_cancel(id);
+  }
+
+  late final _lrlm_operation_cancelPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Uint64)>>(
+        'lrlm_operation_cancel',
+      );
+  late final _lrlm_operation_cancel = _lrlm_operation_cancelPtr
+      .asFunction<void Function(int)>();
+
+  bool lrlm_operation_needs_cancel(int id) {
+    return _lrlm_operation_needs_cancel(id);
+  }
+
+  late final _lrlm_operation_needs_cancelPtr =
+      _lookup<ffi.NativeFunction<ffi.Bool Function(ffi.Uint64)>>(
+        'lrlm_operation_needs_cancel',
+      );
+  late final _lrlm_operation_needs_cancel = _lrlm_operation_needs_cancelPtr
+      .asFunction<bool Function(int)>();
+
+  bool lrlm_operation_is_final(int id) {
+    return _lrlm_operation_is_final(id);
+  }
+
+  late final _lrlm_operation_is_finalPtr =
+      _lookup<ffi.NativeFunction<ffi.Bool Function(ffi.Uint64)>>(
+        'lrlm_operation_is_final',
+      );
+  late final _lrlm_operation_is_final = _lrlm_operation_is_finalPtr
+      .asFunction<bool Function(int)>();
+
+  /// Safe even if a late callback is already in progress: callback holds a
+  /// shared reference and only looks up the numeric ID, never a freed
+  /// callback_data pointer.
+  void lrlm_operation_delete(int id) {
+    return _lrlm_operation_delete(id);
+  }
+
+  late final _lrlm_operation_deletePtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Uint64)>>(
+        'lrlm_operation_delete',
+      );
+  late final _lrlm_operation_delete = _lrlm_operation_deletePtr
+      .asFunction<void Function(int)>();
+
+  /// take transfers one owned payload to Dart; ALWAYS call event_delete,
+  /// including decode errors, subscriber cancellation, shutdown and obsolete
+  /// operations.
+  ffi.Pointer<LrlmEvent> lrlm_operation_take(int id) {
+    return _lrlm_operation_take(id);
+  }
+
+  late final _lrlm_operation_takePtr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<LrlmEvent> Function(ffi.Uint64)>>(
+        'lrlm_operation_take',
+      );
+  late final _lrlm_operation_take = _lrlm_operation_takePtr
+      .asFunction<ffi.Pointer<LrlmEvent> Function(int)>();
+
+  int lrlm_event_operation_id(ffi.Pointer<LrlmEvent> event) {
+    return _lrlm_event_operation_id(event);
+  }
+
+  late final _lrlm_event_operation_idPtr =
+      _lookup<ffi.NativeFunction<ffi.Uint64 Function(ffi.Pointer<LrlmEvent>)>>(
+        'lrlm_event_operation_id',
+      );
+  late final _lrlm_event_operation_id = _lrlm_event_operation_idPtr
+      .asFunction<int Function(ffi.Pointer<LrlmEvent>)>();
+
+  /// 0=text, 1=complete, 2=native error, 3=cancelled, 4=backpressure.
+  int lrlm_event_kind(ffi.Pointer<LrlmEvent> event) {
+    return _lrlm_event_kind(event);
+  }
+
+  late final _lrlm_event_kindPtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Pointer<LrlmEvent>)>>(
+        'lrlm_event_kind',
+      );
+  late final _lrlm_event_kind = _lrlm_event_kindPtr
+      .asFunction<int Function(ffi.Pointer<LrlmEvent>)>();
+
+  ffi.Pointer<ffi.Char> lrlm_event_text(ffi.Pointer<LrlmEvent> event) {
+    return _lrlm_event_text(event);
+  }
+
+  late final _lrlm_event_textPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<ffi.Char> Function(ffi.Pointer<LrlmEvent>)
+        >
+      >('lrlm_event_text');
+  late final _lrlm_event_text = _lrlm_event_textPtr
+      .asFunction<ffi.Pointer<ffi.Char> Function(ffi.Pointer<LrlmEvent>)>();
+
+  void lrlm_event_delete(ffi.Pointer<LrlmEvent> event) {
+    return _lrlm_event_delete(event);
+  }
+
+  late final _lrlm_event_deletePtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<LrlmEvent>)>>(
+        'lrlm_event_delete',
+      );
+  late final _lrlm_event_delete = _lrlm_event_deletePtr
+      .asFunction<void Function(ffi.Pointer<LrlmEvent>)>();
+
+  int lrlm_live_operations() {
+    return _lrlm_live_operations();
+  }
+
+  late final _lrlm_live_operationsPtr =
+      _lookup<ffi.NativeFunction<ffi.Int64 Function()>>('lrlm_live_operations');
+  late final _lrlm_live_operations = _lrlm_live_operationsPtr
+      .asFunction<int Function()>();
+
+  int lrlm_live_events() {
+    return _lrlm_live_events();
+  }
+
+  late final _lrlm_live_eventsPtr =
+      _lookup<ffi.NativeFunction<ffi.Int64 Function()>>('lrlm_live_events');
+  late final _lrlm_live_events = _lrlm_live_eventsPtr
+      .asFunction<int Function()>();
+
+  /// Pinned-runtime adapter: counts exactly the inputs consumed by Session,
+  /// including BOS, model template, decoded image patches and audio frames. No
+  /// inference is performed. Negative means failure; copy budget_error now.
+  int lrlm_conversation_input_tokens(
+    ffi.Pointer<LiteRtLmEngine> engine,
+    ffi.Pointer<LiteRtLmConversation> conversation,
+    ffi.Pointer<ffi.Char> messages_json,
+  ) {
+    return _lrlm_conversation_input_tokens(engine, conversation, messages_json);
+  }
+
+  late final _lrlm_conversation_input_tokensPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int64 Function(
+            ffi.Pointer<LiteRtLmEngine>,
+            ffi.Pointer<LiteRtLmConversation>,
+            ffi.Pointer<ffi.Char>,
+          )
+        >
+      >('lrlm_conversation_input_tokens');
+  late final _lrlm_conversation_input_tokens =
+      _lrlm_conversation_input_tokensPtr
+          .asFunction<
+            int Function(
+              ffi.Pointer<LiteRtLmEngine>,
+              ffi.Pointer<LiteRtLmConversation>,
+              ffi.Pointer<ffi.Char>,
+            )
+          >();
+
+  int lrlm_session_input_tokens(
+    ffi.Pointer<LiteRtLmEngine> engine,
+    ffi.Pointer<LiteRtLmSession> session,
+    ffi.Pointer<ffi.Char> text,
+    bool first_turn,
+  ) {
+    return _lrlm_session_input_tokens(engine, session, text, first_turn);
+  }
+
+  late final _lrlm_session_input_tokensPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int64 Function(
+            ffi.Pointer<LiteRtLmEngine>,
+            ffi.Pointer<LiteRtLmSession>,
+            ffi.Pointer<ffi.Char>,
+            ffi.Bool,
+          )
+        >
+      >('lrlm_session_input_tokens');
+  late final _lrlm_session_input_tokens = _lrlm_session_input_tokensPtr
+      .asFunction<
+        int Function(
+          ffi.Pointer<LiteRtLmEngine>,
+          ffi.Pointer<LiteRtLmSession>,
+          ffi.Pointer<ffi.Char>,
+          bool,
+        )
+      >();
+
+  int lrlm_engine_context_tokens(ffi.Pointer<LiteRtLmEngine> engine) {
+    return _lrlm_engine_context_tokens(engine);
+  }
+
+  late final _lrlm_engine_context_tokensPtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Int Function(ffi.Pointer<LiteRtLmEngine>)>
+      >('lrlm_engine_context_tokens');
+  late final _lrlm_engine_context_tokens = _lrlm_engine_context_tokensPtr
+      .asFunction<int Function(ffi.Pointer<LiteRtLmEngine>)>();
+
+  int lrlm_session_context_tokens(ffi.Pointer<LiteRtLmSession> session) {
+    return _lrlm_session_context_tokens(session);
+  }
+
+  late final _lrlm_session_context_tokensPtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Int Function(ffi.Pointer<LiteRtLmSession>)>
+      >('lrlm_session_context_tokens');
+  late final _lrlm_session_context_tokens = _lrlm_session_context_tokensPtr
+      .asFunction<int Function(ffi.Pointer<LiteRtLmSession>)>();
+
+  ffi.Pointer<ffi.Char> lrlm_budget_error() {
+    return _lrlm_budget_error();
+  }
+
+  late final _lrlm_budget_errorPtr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>(
+        'lrlm_budget_error',
+      );
+  late final _lrlm_budget_error = _lrlm_budget_errorPtr
+      .asFunction<ffi.Pointer<ffi.Char> Function()>();
+
+  /// Native structured history (including channels). Borrowed until next call
+  /// on this thread; Dart copies synchronously. Preface/config messages are
+  /// excluded.
+  ffi.Pointer<ffi.Char> lrlm_conversation_history(
+    ffi.Pointer<LiteRtLmConversation> conversation,
+  ) {
+    return _lrlm_conversation_history(conversation);
+  }
+
+  late final _lrlm_conversation_historyPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<ffi.Char> Function(ffi.Pointer<LiteRtLmConversation>)
+        >
+      >('lrlm_conversation_history');
+  late final _lrlm_conversation_history = _lrlm_conversation_historyPtr
+      .asFunction<
+        ffi.Pointer<ffi.Char> Function(ffi.Pointer<LiteRtLmConversation>)
+      >();
 }
 
 final class LiteRtLmEngine extends ffi.Opaque {}
@@ -1993,11 +4211,11 @@ final class LiteRtLmEngineSettings extends ffi.Opaque {}
 
 final class LiteRtLmBenchmarkInfo extends ffi.Opaque {}
 
-final class LiteRtLmConversation extends ffi.Opaque {}
+final class LiteRtLmRepetitionPenaltyConfig extends ffi.Opaque {}
 
-final class LiteRtLmConversationOptionalArgs extends ffi.Opaque {}
+final class LiteRtLmNoRepeatNgramConfig extends ffi.Opaque {}
 
-final class LiteRtLmJsonResponse extends ffi.Opaque {}
+final class LiteRtLmSuppressTokensConfig extends ffi.Opaque {}
 
 final class LiteRtLmDetokenizeResult extends ffi.Opaque {}
 
@@ -2024,12 +4242,13 @@ final class LiteRtLmTokenUnion extends ffi.Opaque {}
 
 final class LiteRtLmTokenUnions extends ffi.Opaque {}
 
-final class LiteRtLmSessionConfig extends ffi.Opaque {}
+final class LiteRtLmInputData extends ffi.Opaque {}
 
-final class LiteRtLmConversationConfig extends ffi.Opaque {}
+final class LiteRtLmSessionConfig extends ffi.Opaque {}
 
 /// Represents the type of sampler.
 enum LiteRtLmSamplerType {
+  /// Default fallback/unspecified.
   kLiteRtLmSamplerTypeUnspecified(0),
 
   /// Probabilistically pick among the top k tokens.
@@ -2054,24 +4273,31 @@ enum LiteRtLmSamplerType {
   };
 }
 
-/// Parameters for the sampler.
-final class LiteRtLmSamplerParams extends ffi.Struct {
-  @ffi.UnsignedInt()
-  external int typeAsInt;
+final class LiteRtLmSamplerParams extends ffi.Opaque {}
 
-  LiteRtLmSamplerType get type => LiteRtLmSamplerType.fromValue(typeAsInt);
+/// Represents the log severity / level.
+enum LiteRtLmLogSeverity {
+  kLiteRtLmLogSeverityVerbose(0),
+  kLiteRtLmLogSeverityDebug(1),
+  kLiteRtLmLogSeverityInfo(2),
+  kLiteRtLmLogSeverityWarning(3),
+  kLiteRtLmLogSeverityError(4),
+  kLiteRtLmLogSeverityFatal(5),
+  kLiteRtLmLogSeveritySilent(1000);
 
-  @ffi.Int32()
-  external int top_k;
+  final int value;
+  const LiteRtLmLogSeverity(this.value);
 
-  @ffi.Float()
-  external double top_p;
-
-  @ffi.Float()
-  external double temperature;
-
-  @ffi.Int32()
-  external int seed;
+  static LiteRtLmLogSeverity fromValue(int value) => switch (value) {
+    0 => kLiteRtLmLogSeverityVerbose,
+    1 => kLiteRtLmLogSeverityDebug,
+    2 => kLiteRtLmLogSeverityInfo,
+    3 => kLiteRtLmLogSeverityWarning,
+    4 => kLiteRtLmLogSeverityError,
+    5 => kLiteRtLmLogSeverityFatal,
+    1000 => kLiteRtLmLogSeveritySilent,
+    _ => throw ArgumentError('Unknown value for LiteRtLmLogSeverity: $value'),
+  };
 }
 
 /// Represents the type of input data.
@@ -2095,228 +4321,213 @@ enum LiteRtLmInputDataType {
   };
 }
 
-/// Represents a single piece of input data.
-final class LiteRtLmInputData extends ffi.Struct {
-  @ffi.UnsignedInt()
-  external int typeAsInt;
+/// Represents the activation data type.
+enum LiteRtLmActivationDataType {
+  kLiteRtLmActivationDataTypeFloat32(0),
+  kLiteRtLmActivationDataTypeFloat16(1),
+  kLiteRtLmActivationDataTypeInt16(2),
+  kLiteRtLmActivationDataTypeInt8(3);
 
-  LiteRtLmInputDataType get type => LiteRtLmInputDataType.fromValue(typeAsInt);
+  final int value;
+  const LiteRtLmActivationDataType(this.value);
 
-  /// The data pointer. The interpretation depends on the `type`. For
-  /// kInputText, it's a UTF-8 string. For kInputImage and kInputAudio, it's a
-  /// pointer to the raw bytes.
-  external ffi.Pointer<ffi.Void> data;
-
-  /// The size of the data in bytes.
-  @ffi.Size()
-  external int size;
+  static LiteRtLmActivationDataType fromValue(int value) => switch (value) {
+    0 => kLiteRtLmActivationDataTypeFloat32,
+    1 => kLiteRtLmActivationDataTypeFloat16,
+    2 => kLiteRtLmActivationDataTypeInt16,
+    3 => kLiteRtLmActivationDataTypeInt8,
+    _ => throw ArgumentError(
+      'Unknown value for LiteRtLmActivationDataType: $value',
+    ),
+  };
 }
+
+final class LiteRtLmStreamChunk extends ffi.Opaque {}
 
 typedef LiteRtLmStreamCallbackFunction =
     ffi.Void Function(
       ffi.Pointer<ffi.Void> callback_data,
-      ffi.Pointer<ffi.Char> chunk,
-      ffi.Bool is_final,
-      ffi.Pointer<ffi.Char> error_msg,
+      ffi.Pointer<LiteRtLmStreamChunk> chunk,
     );
 typedef DartLiteRtLmStreamCallbackFunction =
     void Function(
       ffi.Pointer<ffi.Void> callback_data,
-      ffi.Pointer<ffi.Char> chunk,
-      bool is_final,
-      ffi.Pointer<ffi.Char> error_msg,
+      ffi.Pointer<LiteRtLmStreamChunk> chunk,
     );
 
 /// Callback for streaming responses. `callback_data` is a pointer to
-/// user-defined data passed to the stream function. `chunk` is the piece of
-/// text from the stream. It's only valid for the duration of the call.
-/// `is_final` is true if this is the last chunk in the stream. `error_msg` is a
-/// null-terminated string with an error message, or NULL on success.
+/// user-defined data passed to the stream function. `chunk` is a pointer to the
+/// stream chunk object. It's only valid for the duration of the call.
 typedef LiteRtLmStreamCallback =
     ffi.Pointer<ffi.NativeFunction<LiteRtLmStreamCallbackFunction>>;
 
-const int __bool_true_false_are_defined = 1;
-
-const int true$ = 1;
-
-const int false$ = 0;
-
-const int __has_safe_buffers = 1;
-
-const int __DARWIN_ONLY_64_BIT_INO_T = 1;
-
-const int __DARWIN_ONLY_UNIX_CONFORMANCE = 1;
-
-const int __DARWIN_ONLY_VERS_1050 = 1;
-
-const int __DARWIN_UNIX03 = 1;
-
-const int __DARWIN_64_BIT_INO_T = 1;
-
-const int __DARWIN_VERS_1050 = 1;
-
-const int __DARWIN_NON_CANCELABLE = 0;
-
-const String __DARWIN_SUF_EXTSN = '\$DARWIN_EXTSN';
-
-const int __DARWIN_C_ANSI = 4096;
-
-const int __DARWIN_C_FULL = 900000;
-
-const int __DARWIN_C_LEVEL = 900000;
-
-const int __STDC_WANT_LIB_EXT1__ = 1;
-
-const int __DARWIN_NO_LONG_LONG = 0;
-
-const int _DARWIN_FEATURE_64_BIT_INODE = 1;
-
-const int _DARWIN_FEATURE_ONLY_64_BIT_INODE = 1;
-
-const int _DARWIN_FEATURE_ONLY_VERS_1050 = 1;
-
-const int _DARWIN_FEATURE_ONLY_UNIX_CONFORMANCE = 1;
-
-const int _DARWIN_FEATURE_UNIX_CONFORMANCE = 3;
-
-const int __has_ptrcheck = 0;
-
-const int __has_bounds_safety_attributes = 0;
-
-const int __DARWIN_NULL = 0;
-
-const int __PTHREAD_SIZE__ = 8176;
-
-const int __PTHREAD_ATTR_SIZE__ = 56;
-
-const int __PTHREAD_MUTEXATTR_SIZE__ = 8;
-
-const int __PTHREAD_MUTEX_SIZE__ = 56;
-
-const int __PTHREAD_CONDATTR_SIZE__ = 8;
-
-const int __PTHREAD_COND_SIZE__ = 40;
-
-const int __PTHREAD_ONCE_SIZE__ = 8;
-
-const int __PTHREAD_RWLOCK_SIZE__ = 192;
-
-const int __PTHREAD_RWLOCKATTR_SIZE__ = 16;
-
-const int __DARWIN_WCHAR_MAX = 2147483647;
-
-const int __DARWIN_WCHAR_MIN = -2147483648;
-
-const int __DARWIN_WEOF = -1;
-
-const int _FORTIFY_SOURCE = 2;
-
-const int NULL = 0;
-
-const int USER_ADDR_NULL = 0;
-
-const int __WORDSIZE = 64;
-
-const int INT8_MAX = 127;
-
-const int INT16_MAX = 32767;
-
-const int INT32_MAX = 2147483647;
-
-const int INT64_MAX = 9223372036854775807;
-
-const int INT8_MIN = -128;
-
-const int INT16_MIN = -32768;
-
-const int INT32_MIN = -2147483648;
-
-const int INT64_MIN = -9223372036854775808;
-
-const int UINT8_MAX = 255;
-
-const int UINT16_MAX = 65535;
-
-const int UINT32_MAX = 4294967295;
-
-const int UINT64_MAX = -1;
-
-const int INT_LEAST8_MIN = -128;
-
-const int INT_LEAST16_MIN = -32768;
-
-const int INT_LEAST32_MIN = -2147483648;
-
-const int INT_LEAST64_MIN = -9223372036854775808;
-
-const int INT_LEAST8_MAX = 127;
-
-const int INT_LEAST16_MAX = 32767;
-
-const int INT_LEAST32_MAX = 2147483647;
-
-const int INT_LEAST64_MAX = 9223372036854775807;
-
-const int UINT_LEAST8_MAX = 255;
-
-const int UINT_LEAST16_MAX = 65535;
-
-const int UINT_LEAST32_MAX = 4294967295;
-
-const int UINT_LEAST64_MAX = -1;
-
-const int INT_FAST8_MIN = -128;
-
-const int INT_FAST16_MIN = -32768;
-
-const int INT_FAST32_MIN = -2147483648;
-
-const int INT_FAST64_MIN = -9223372036854775808;
-
-const int INT_FAST8_MAX = 127;
-
-const int INT_FAST16_MAX = 32767;
-
-const int INT_FAST32_MAX = 2147483647;
-
-const int INT_FAST64_MAX = 9223372036854775807;
-
-const int UINT_FAST8_MAX = 255;
-
-const int UINT_FAST16_MAX = 65535;
-
-const int UINT_FAST32_MAX = 4294967295;
-
-const int UINT_FAST64_MAX = -1;
-
-const int INTPTR_MAX = 9223372036854775807;
-
-const int INTPTR_MIN = -9223372036854775808;
-
-const int UINTPTR_MAX = -1;
-
-const int INTMAX_MAX = 9223372036854775807;
-
-const int UINTMAX_MAX = -1;
-
-const int INTMAX_MIN = -9223372036854775808;
-
-const int PTRDIFF_MIN = -9223372036854775808;
-
-const int PTRDIFF_MAX = 9223372036854775807;
-
-const int SIZE_MAX = -1;
-
-const int RSIZE_MAX = 9223372036854775807;
-
-const int WCHAR_MAX = 2147483647;
-
-const int WCHAR_MIN = -2147483648;
-
-const int WINT_MIN = -2147483648;
-
-const int WINT_MAX = 2147483647;
-
-const int SIG_ATOMIC_MIN = -2147483648;
-
-const int SIG_ATOMIC_MAX = 2147483647;
+final class LiteRtLmConversation extends ffi.Opaque {}
+
+final class LiteRtLmConversationOptionalArgs extends ffi.Opaque {}
+
+final class LiteRtLmJsonResponse extends ffi.Opaque {}
+
+final class LiteRtLmConversationConfig extends ffi.Opaque {}
+
+final class LiteRtLmThinkingConfig extends ffi.Opaque {}
+
+/// Represents the type of constraint for constrained decoding.
+enum LiteRtLmConstraintType {
+  kLiteRtLmConstraintTypeNone(0),
+  kLiteRtLmConstraintTypeRegex(1),
+  kLiteRtLmConstraintTypeJsonSchema(2);
+
+  final int value;
+  const LiteRtLmConstraintType(this.value);
+
+  static LiteRtLmConstraintType fromValue(int value) => switch (value) {
+    0 => kLiteRtLmConstraintTypeNone,
+    1 => kLiteRtLmConstraintTypeRegex,
+    2 => kLiteRtLmConstraintTypeJsonSchema,
+    _ => throw ArgumentError(
+      'Unknown value for LiteRtLmConstraintType: $value',
+    ),
+  };
+}
+
+/// Represents the type of constraint provider.
+enum LiteRtLmConstraintProviderType {
+  kLiteRtLmConstraintProviderTypeLlGuidance(1);
+
+  final int value;
+  const LiteRtLmConstraintProviderType(this.value);
+
+  static LiteRtLmConstraintProviderType fromValue(int value) => switch (value) {
+    1 => kLiteRtLmConstraintProviderTypeLlGuidance,
+    _ => throw ArgumentError(
+      'Unknown value for LiteRtLmConstraintProviderType: $value',
+    ),
+  };
+}
+
+final class LiteRtLmLoadedFile extends ffi.Opaque {}
+
+/// Input and output modalities supported by LiteRT-LM models.
+enum LiteRtLmModality {
+  kLiteRtLmModalityText(0),
+  kLiteRtLmModalityVision(1),
+  kLiteRtLmModalityAudio(2),
+  kLiteRtLmModalityVideo(3);
+
+  final int value;
+  const LiteRtLmModality(this.value);
+
+  static LiteRtLmModality fromValue(int value) => switch (value) {
+    0 => kLiteRtLmModalityText,
+    1 => kLiteRtLmModalityVision,
+    2 => kLiteRtLmModalityAudio,
+    3 => kLiteRtLmModalityVideo,
+    _ => throw ArgumentError('Unknown value for LiteRtLmModality: $value'),
+  };
+}
+
+/// Hardware backend type.
+enum LiteRtLmBackendType {
+  kLiteRtLmBackendTypeCpu(1),
+  kLiteRtLmBackendTypeGpu(2),
+  kLiteRtLmBackendTypeNpu(3);
+
+  final int value;
+  const LiteRtLmBackendType(this.value);
+
+  static LiteRtLmBackendType fromValue(int value) => switch (value) {
+    1 => kLiteRtLmBackendTypeCpu,
+    2 => kLiteRtLmBackendTypeGpu,
+    3 => kLiteRtLmBackendTypeNpu,
+    _ => throw ArgumentError('Unknown value for LiteRtLmBackendType: $value'),
+  };
+}
+
+/// NPU brand options.
+enum LiteRtLmNpuBrand {
+  kLiteRtLmNpuBrandUnknown(0),
+  kLiteRtLmNpuBrandQualcomm(1),
+  kLiteRtLmNpuBrandGoogleTensor(2),
+  kLiteRtLmNpuBrandMediaTek(3),
+  kLiteRtLmNpuBrandIntel(4),
+  kLiteRtLmNpuBrandSamsung(5);
+
+  final int value;
+  const LiteRtLmNpuBrand(this.value);
+
+  static LiteRtLmNpuBrand fromValue(int value) => switch (value) {
+    0 => kLiteRtLmNpuBrandUnknown,
+    1 => kLiteRtLmNpuBrandQualcomm,
+    2 => kLiteRtLmNpuBrandGoogleTensor,
+    3 => kLiteRtLmNpuBrandMediaTek,
+    4 => kLiteRtLmNpuBrandIntel,
+    5 => kLiteRtLmNpuBrandSamsung,
+    _ => throw ArgumentError('Unknown value for LiteRtLmNpuBrand: $value'),
+  };
+}
+
+/// Model type of the loaded LiteRT-LM file.
+enum LiteRtLmModelType {
+  kLiteRtLmModelTypeUnknown(0),
+  kLiteRtLmModelTypeLlm(1),
+  kLiteRtLmModelTypeEmbedding(2);
+
+  final int value;
+  const LiteRtLmModelType(this.value);
+
+  static LiteRtLmModelType fromValue(int value) => switch (value) {
+    0 => kLiteRtLmModelTypeUnknown,
+    1 => kLiteRtLmModelTypeLlm,
+    2 => kLiteRtLmModelTypeEmbedding,
+    _ => throw ArgumentError('Unknown value for LiteRtLmModelType: $value'),
+  };
+}
+
+/// =============================================================================
+/// Status Codes
+/// =============================================================================
+enum LiteRtLmStatusCode {
+  kLiteRtLmStatusOk(0),
+  kLiteRtLmStatusCancelled(1),
+  kLiteRtLmStatusUnknown(2),
+  kLiteRtLmStatusInvalidArgument(3),
+  kLiteRtLmStatusDeadlineExceeded(4),
+  kLiteRtLmStatusNotFound(5),
+  kLiteRtLmStatusAlreadyExists(6),
+  kLiteRtLmStatusPermissionDenied(7),
+  kLiteRtLmStatusResourceExhausted(8),
+  kLiteRtLmStatusFailedPrecondition(9),
+  kLiteRtLmStatusAborted(10),
+  kLiteRtLmStatusOutOfRange(11),
+  kLiteRtLmStatusUnimplemented(12),
+  kLiteRtLmStatusInternal(13),
+  kLiteRtLmStatusUnavailable(14),
+  kLiteRtLmStatusDataLoss(15),
+  kLiteRtLmStatusUnauthenticated(16);
+
+  final int value;
+  const LiteRtLmStatusCode(this.value);
+
+  static LiteRtLmStatusCode fromValue(int value) => switch (value) {
+    0 => kLiteRtLmStatusOk,
+    1 => kLiteRtLmStatusCancelled,
+    2 => kLiteRtLmStatusUnknown,
+    3 => kLiteRtLmStatusInvalidArgument,
+    4 => kLiteRtLmStatusDeadlineExceeded,
+    5 => kLiteRtLmStatusNotFound,
+    6 => kLiteRtLmStatusAlreadyExists,
+    7 => kLiteRtLmStatusPermissionDenied,
+    8 => kLiteRtLmStatusResourceExhausted,
+    9 => kLiteRtLmStatusFailedPrecondition,
+    10 => kLiteRtLmStatusAborted,
+    11 => kLiteRtLmStatusOutOfRange,
+    12 => kLiteRtLmStatusUnimplemented,
+    13 => kLiteRtLmStatusInternal,
+    14 => kLiteRtLmStatusUnavailable,
+    15 => kLiteRtLmStatusDataLoss,
+    16 => kLiteRtLmStatusUnauthenticated,
+    _ => throw ArgumentError('Unknown value for LiteRtLmStatusCode: $value'),
+  };
+}
+
+final class LrlmEvent extends ffi.Opaque {}

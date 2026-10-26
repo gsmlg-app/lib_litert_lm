@@ -3,7 +3,8 @@ import 'dart:async';
 import 'backend.dart';
 import 'types.dart';
 
-final class FakeLiteRtLmBackend implements LiteRtLmBackend {
+final class FakeLiteRtLmBackend
+    implements LiteRtLmBackend, LiteRtLmAdvancedBackend {
   FakeLiteRtLmBackend({
     this.generateText = 'fake response',
     this.streamTokens = const <String>['fake', ' ', 'response'],
@@ -13,6 +14,11 @@ final class FakeLiteRtLmBackend implements LiteRtLmBackend {
   final String generateText;
   final List<String> streamTokens;
   final Duration tokenDelay;
+
+  final createdConversations = <List<LiteRtLmMessage>>[];
+  final metrics = <String, Object?>{};
+  final _cancelledRuns = <int>{};
+  final sentMessages = <List<LiteRtLmMessage>>[];
 
   final loadedModels = <String>[];
   final loadedConfigs = <LiteRtLmEngineConfig>[];
@@ -89,15 +95,19 @@ final class FakeLiteRtLmBackend implements LiteRtLmBackend {
     late StreamController<LiteRtLmEvent> controller;
     Timer? timer;
     var index = 0;
+    var finished = false;
+    _cancelledRuns.remove(sessionId);
     final buffer = StringBuffer();
 
     void emitNext() {
-      if (cancelledSessions.contains(sessionId)) {
+      if (_cancelledRuns.contains(sessionId)) {
+        finished = true;
         controller.add(const LiteRtLmCancelledEvent());
         unawaited(controller.close());
         return;
       }
       if (index >= streamTokens.length) {
+        finished = true;
         controller.add(LiteRtLmCompleted(buffer.toString()));
         unawaited(controller.close());
         return;
@@ -112,7 +122,10 @@ final class FakeLiteRtLmBackend implements LiteRtLmBackend {
       onListen: emitNext,
       onCancel: () {
         timer?.cancel();
-        cancelledSessions.add(sessionId);
+        if (!finished) {
+          cancelledSessions.add(sessionId);
+          _cancelledRuns.add(sessionId);
+        }
       },
     );
     return controller.stream;
@@ -142,6 +155,7 @@ final class FakeLiteRtLmBackend implements LiteRtLmBackend {
   @override
   Future<void> cancelSession(int sessionId) async {
     cancelledSessions.add(sessionId);
+    _cancelledRuns.add(sessionId);
   }
 
   @override
@@ -163,4 +177,64 @@ final class FakeLiteRtLmBackend implements LiteRtLmBackend {
     _sessions.clear();
     _engines.clear();
   }
+
+  // These capabilities support Dart/HTTP tests only; no native inference is run.
+  @override
+  Future<LiteRtLmResult<int>> createConversation(
+    int engineId,
+    List<LiteRtLmMessage> messages,
+    LiteRtLmGenerationParams params,
+  ) async {
+    final result = await createSession(engineId, params);
+    if (result.isOk) createdConversations.add(List.of(messages));
+    return result;
+  }
+
+  @override
+  Stream<LiteRtLmEvent> sendMessagesStream(
+    int conversationId,
+    List<LiteRtLmMessage> messages,
+  ) {
+    sentMessages.add(List.of(messages));
+    return generateStream(conversationId, '');
+  }
+
+  @override
+  Future<LiteRtLmResult<Map<String, Object?>>> inspectModel(
+    String path,
+  ) async => LiteRtLmOk({
+    'path': path,
+    'runtimeVersion': 'fake',
+    'runtimeCommit': '',
+    'dynamicContext': false,
+    'backends': <String, List<String>>{},
+  });
+  @override
+  Future<LiteRtLmResult<Map<String, Object?>>> engineInfo(int engineId) async {
+    if (!_engines.contains(engineId)) {
+      return const LiteRtLmErr(LiteRtLmDisposed('Fake engine disposed'));
+    }
+    return inspectModel(loadedModels[engineId - 1]);
+  }
+
+  @override
+  Future<LiteRtLmResult<List<int>>> tokenize(int engineId, String text) async =>
+      const LiteRtLmErr(
+        LiteRtLmUnsupported('Fake backend has no model tokenizer'),
+      );
+  @override
+  Future<LiteRtLmResult<Map<String, Object?>>> conversationBudget(
+    int conversationId,
+    List<LiteRtLmMessage> messages,
+    int outputReserve,
+  ) async => LiteRtLmOk({
+    'contextTokens': 4096,
+    'usedTokens': 0,
+    'outputReserve': outputReserve,
+    'exact': false,
+  });
+  @override
+  Future<LiteRtLmResult<Map<String, Object?>>> sessionMetrics(
+    int sessionId,
+  ) async => LiteRtLmOk(Map.of(metrics));
 }

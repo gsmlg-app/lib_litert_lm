@@ -37,3 +37,25 @@ abstract interface class LiteRtLmBackend {
 
   Future<void> close();
 }
+
+/// Optional runtime capabilities. Existing backend implementations stay valid.
+abstract interface class LiteRtLmAdvancedBackend {
+  Future<LiteRtLmResult<int>> createConversation(
+    int engineId,
+    List<LiteRtLmMessage> messages,
+    LiteRtLmGenerationParams params,
+  );
+  Stream<LiteRtLmEvent> sendMessagesStream(
+    int conversationId,
+    List<LiteRtLmMessage> messages,
+  );
+  Future<LiteRtLmResult<Map<String, Object?>>> inspectModel(String path);
+  Future<LiteRtLmResult<Map<String, Object?>>> engineInfo(int engineId);
+  Future<LiteRtLmResult<List<int>>> tokenize(int engineId, String text);
+  Future<LiteRtLmResult<Map<String, Object?>>> conversationBudget(
+    int conversationId,
+    List<LiteRtLmMessage> messages,
+    int outputReserve,
+  );
+  Future<LiteRtLmResult<Map<String, Object?>>> sessionMetrics(int sessionId);
+}

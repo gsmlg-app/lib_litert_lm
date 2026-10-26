@@ -3,6 +3,33 @@ import 'package:lib_litert_lm/lib_litert_lm.dart';
 import 'package:lib_litert_lm/src/fake_backend.dart';
 
 void main() {
+  test(
+    'parent disposal invalidates child handles and cleanup stays safe',
+    () async {
+      final backend = FakeLiteRtLmBackend();
+      final client = LiteRtLm.testing(backend);
+      final engine = (await client.loadEngine(
+        const LiteRtLmEngineConfig(modelPath: '/tmp/model.litertlm'),
+      )).valueOrNull!;
+      final session = (await engine.createSession()).valueOrNull!;
+      await client.dispose();
+      expect(
+        (await session.generate('hello')).errorOrNull,
+        isA<LiteRtLmDisposed>(),
+      );
+      expect(
+        (await engine.createSession()).errorOrNull,
+        isA<LiteRtLmDisposed>(),
+      );
+      await session.cancel();
+      await session.dispose();
+      await engine.dispose();
+      expect(backend.cancelledSessions, isEmpty);
+      expect(backend.disposedSessions, isEmpty);
+      expect(backend.disposedEngines, isEmpty);
+    },
+  );
+
   test('available model configs map supported ids to Hugging Face pages', () {
     expect(
       availableLiteRtLmModelConfigs.map((config) => config.id),

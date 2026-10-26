@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'backend.dart';
 
@@ -48,6 +49,11 @@ final class LiteRtLmEngineConfig {
   const LiteRtLmEngineConfig({
     required this.modelPath,
     this.backend = 'cpu',
+    this.visionBackend,
+    this.audioBackend,
+    this.modelId,
+    this.artifactSha256,
+    this.revision,
     this.maxNumTokens,
     this.cacheDir,
     this.litertDispatchLibDir,
@@ -57,6 +63,15 @@ final class LiteRtLmEngineConfig {
 
   final String modelPath;
   final String backend;
+
+  /// Leave null to keep vision disabled.
+  final String? visionBackend;
+
+  /// Leave null to keep audio disabled.
+  final String? audioBackend;
+  final String? modelId;
+  final String? artifactSha256;
+  final String? revision;
   final int? maxNumTokens;
   final String? cacheDir;
   final String? litertDispatchLibDir;
@@ -218,11 +233,44 @@ final class LiteRtLmCancelledEvent extends LiteRtLmEvent {
   final LiteRtLmCancelled reason;
 }
 
+// Shared parent state makes surviving children safe after client/engine closure.
+final class _HandleState {
+  _HandleState([this.parent]);
+  final _HandleState? parent;
+  bool _closed = false;
+  Future<void>? _closing;
+  bool get closed => _closed || (parent?.closed ?? false);
+  Future<void> close(Future<void> Function() operation) {
+    if (_closing != null) return _closing!;
+    final parentClosed = parent?.closed ?? false;
+    _closed = true;
+    return _closing = parentClosed
+        ? Future<void>.value()
+        : Future<void>.sync(operation);
+  }
+}
+
+const _disposed = LiteRtLmDisposed(
+  'LiteRT-LM handle or its parent has been disposed',
+);
+const _unsupported = LiteRtLmUnsupported(
+  'Backend does not support this operation',
+);
+
+LiteRtLmFailure? _validateMessages(List<LiteRtLmMessage> messages) {
+  try {
+    for (final message in messages) {
+      message.toJson();
+    }
+    return null;
+  } on ArgumentError catch (error) {
+    return LiteRtLmInvalidArgument(error.message.toString());
+  }
+}
+
 final class LiteRtLm {
   LiteRtLm._(this._backend);
-
   factory LiteRtLm.testing(LiteRtLmBackend backend) = LiteRtLm._;
-
   static Future<LiteRtLmResult<LiteRtLm>> create({
     String libraryName = 'liblitert_lm_c.so',
   }) async {
@@ -233,156 +281,279 @@ final class LiteRtLm {
   }
 
   final LiteRtLmBackend _backend;
-  bool _disposed = false;
-
+  final _state = _HandleState();
   Future<LiteRtLmResult<LiteRtLmEngine>> loadEngine(
     LiteRtLmEngineConfig config,
   ) async {
-    if (_disposed) {
-      return const LiteRtLmErr(
-        LiteRtLmDisposed('LiteRT-LM client has been disposed'),
-      );
-    }
-
+    if (_state.closed) return const LiteRtLmErr(_disposed);
     final result = await _backend.loadEngine(config);
-    return result.map((id) => LiteRtLmEngine._(_backend, id));
+    if (_state.closed) return const LiteRtLmErr(_disposed);
+    return result.map((id) => LiteRtLmEngine._(_backend, id, _state));
   }
 
-  Future<void> dispose() async {
-    if (_disposed) {
-      return;
+  Future<LiteRtLmResult<LiteRtLmModelInfo>> inspectModel(String path) async {
+    if (_state.closed) return const LiteRtLmErr(_disposed);
+    final backend = _backend;
+    if (backend is! LiteRtLmAdvancedBackend) {
+      return const LiteRtLmErr(_unsupported);
     }
-    _disposed = true;
-    await _backend.close();
+    return (await (backend as LiteRtLmAdvancedBackend).inspectModel(
+      path,
+    )).map(LiteRtLmModelInfo.fromJson);
   }
+
+  Future<void> dispose() => _state.close(_backend.close);
 }
 
 final class LiteRtLmEngine {
-  LiteRtLmEngine._(this._backend, this._id);
-
+  LiteRtLmEngine._(this._backend, this._id, _HandleState parent)
+    : _state = _HandleState(parent);
   final LiteRtLmBackend _backend;
   final int _id;
-  bool _disposed = false;
-
+  final _HandleState _state;
   Future<LiteRtLmResult<LiteRtLmSession>> createSession({
     LiteRtLmGenerationParams params = defaultLiteRtLmGenerationParams,
   }) async {
-    if (_disposed) {
-      return const LiteRtLmErr(
-        LiteRtLmDisposed('LiteRT-LM engine has been disposed'),
-      );
-    }
-
+    if (_state.closed) return const LiteRtLmErr(_disposed);
     final result = await _backend.createSession(_id, params);
-    return result.map((id) => LiteRtLmSession._(_backend, id));
+    if (_state.closed) return const LiteRtLmErr(_disposed);
+    return result.map((id) => LiteRtLmSession._(_backend, id, _state));
+  }
+
+  Future<LiteRtLmResult<LiteRtLmConversation>> createConversation({
+    List<LiteRtLmMessage> messages = const [],
+    LiteRtLmGenerationParams params = defaultLiteRtLmGenerationParams,
+  }) async {
+    if (_state.closed) return const LiteRtLmErr(_disposed);
+    final invalid = _validateMessages(messages);
+    if (invalid != null) return LiteRtLmErr(invalid);
+    final backend = _backend;
+    if (backend is! LiteRtLmAdvancedBackend) {
+      return const LiteRtLmErr(_unsupported);
+    }
+    final result = await (backend as LiteRtLmAdvancedBackend)
+        .createConversation(_id, messages, params);
+    if (_state.closed) return const LiteRtLmErr(_disposed);
+    return result.map((id) => LiteRtLmConversation._(_backend, id, _state));
   }
 
   Future<LiteRtLmResult<String>> generate(
     String prompt, {
     LiteRtLmGenerationParams params = defaultLiteRtLmGenerationParams,
   }) async {
-    final sessionResult = await createSession(params: params);
-    return switch (sessionResult) {
-      LiteRtLmErr<LiteRtLmSession>(:final error) => LiteRtLmErr(error),
-      LiteRtLmOk<LiteRtLmSession>(:final value) => () async {
-        try {
-          return await value.generate(prompt);
-        } finally {
-          await value.dispose();
-        }
-      }(),
-    };
+    final result = await createSession(params: params);
+    final session = result.valueOrNull;
+    if (session == null) return LiteRtLmErr(result.errorOrNull!);
+    try {
+      return await session.generate(prompt);
+    } finally {
+      await session.dispose();
+    }
   }
 
   Future<LiteRtLmResult<String>> generateContent(
     List<LiteRtLmContent> contents, {
     LiteRtLmGenerationParams params = defaultLiteRtLmGenerationParams,
   }) async {
-    final sessionResult = await createSession(params: params);
-    return switch (sessionResult) {
-      LiteRtLmErr<LiteRtLmSession>(:final error) => LiteRtLmErr(error),
-      LiteRtLmOk<LiteRtLmSession>(:final value) => () async {
-        try {
-          return await value.generateContent(contents);
-        } finally {
-          await value.dispose();
-        }
-      }(),
-    };
+    final result = await createSession(params: params);
+    final session = result.valueOrNull;
+    if (session == null) return LiteRtLmErr(result.errorOrNull!);
+    try {
+      return await session.generateContent(contents);
+    } finally {
+      await session.dispose();
+    }
   }
 
-  Future<void> dispose() async {
-    if (_disposed) {
-      return;
+  /// Creates a fresh conversation; [messages] is the complete request history.
+  Future<LiteRtLmResult<String>> generateMessages(
+    List<LiteRtLmMessage> messages, {
+    LiteRtLmGenerationParams params = defaultLiteRtLmGenerationParams,
+  }) async {
+    final result = await createConversation(params: params);
+    final conversation = result.valueOrNull;
+    if (conversation == null) return LiteRtLmErr(result.errorOrNull!);
+    try {
+      return await conversation.sendMessages(messages);
+    } finally {
+      await conversation.dispose();
     }
-    _disposed = true;
-    await _backend.disposeEngine(_id);
   }
+
+  Future<LiteRtLmResult<LiteRtLmModelInfo>> getInfo() async {
+    if (_state.closed) return const LiteRtLmErr(_disposed);
+    final backend = _backend;
+    if (backend is! LiteRtLmAdvancedBackend) {
+      return const LiteRtLmErr(_unsupported);
+    }
+    return (await (backend as LiteRtLmAdvancedBackend).engineInfo(
+      _id,
+    )).map(LiteRtLmModelInfo.fromJson);
+  }
+
+  Future<LiteRtLmResult<List<int>>> tokenize(String text) async {
+    if (_state.closed) return const LiteRtLmErr(_disposed);
+    final backend = _backend;
+    if (backend is! LiteRtLmAdvancedBackend) {
+      return const LiteRtLmErr(_unsupported);
+    }
+    return (backend as LiteRtLmAdvancedBackend).tokenize(_id, text);
+  }
+
+  Future<void> dispose() => _state.close(() => _backend.disposeEngine(_id));
 }
 
 final class LiteRtLmSession {
-  LiteRtLmSession._(this._backend, this._id);
-
+  LiteRtLmSession._(this._backend, this._id, _HandleState parent)
+    : _state = _HandleState(parent);
   final LiteRtLmBackend _backend;
   final int _id;
-  bool _disposed = false;
-
+  final _HandleState _state;
   Future<LiteRtLmResult<String>> generate(String prompt) async {
-    if (_disposed) {
-      return const LiteRtLmErr(
-        LiteRtLmDisposed('LiteRT-LM session has been disposed'),
-      );
-    }
+    if (_state.closed) return const LiteRtLmErr(_disposed);
     return _backend.generate(_id, prompt);
   }
 
   Stream<LiteRtLmEvent> generateStream(String prompt) {
-    if (_disposed) {
-      return Stream<LiteRtLmEvent>.value(
-        const LiteRtLmFailed(
-          LiteRtLmDisposed('LiteRT-LM session has been disposed'),
-        ),
-      );
-    }
+    if (_state.closed) return Stream.value(const LiteRtLmFailed(_disposed));
     return _backend.generateStream(_id, prompt);
   }
 
   Future<LiteRtLmResult<String>> generateContent(
     List<LiteRtLmContent> contents,
   ) async {
-    if (_disposed) {
-      return const LiteRtLmErr(
-        LiteRtLmDisposed('LiteRT-LM session has been disposed'),
-      );
+    if (_state.closed) return const LiteRtLmErr(_disposed);
+    try {
+      contents = normalizeLiteRtLmContents(contents);
+    } on ArgumentError catch (error) {
+      return LiteRtLmErr(LiteRtLmInvalidArgument(error.message.toString()));
     }
     return _backend.generateContent(_id, contents);
   }
 
   Stream<LiteRtLmEvent> generateContentStream(List<LiteRtLmContent> contents) {
-    if (_disposed) {
-      return Stream<LiteRtLmEvent>.value(
-        const LiteRtLmFailed(
-          LiteRtLmDisposed('LiteRT-LM session has been disposed'),
-        ),
+    if (_state.closed) return Stream.value(const LiteRtLmFailed(_disposed));
+    try {
+      contents = normalizeLiteRtLmContents(contents);
+    } on ArgumentError catch (error) {
+      return Stream.value(
+        LiteRtLmFailed(LiteRtLmInvalidArgument(error.message.toString())),
       );
     }
     return _backend.generateContentStream(_id, contents);
   }
 
+  Future<LiteRtLmResult<LiteRtLmMetrics>> getMetrics() =>
+      _getMetrics(_backend, _id, _state);
+  Future<LiteRtLmResult<LiteRtLmTokenBudget>> budget({
+    List<LiteRtLmMessage> messages = const [],
+    int outputReserve = 0,
+  }) => _budget(_backend, _id, _state, messages, outputReserve);
   Future<void> cancel() async {
-    if (_disposed) {
-      return;
-    }
-    await _backend.cancelSession(_id);
+    if (!_state.closed) await _backend.cancelSession(_id);
   }
 
-  Future<void> dispose() async {
-    if (_disposed) {
-      return;
+  Future<void> dispose() => _state.close(() => _backend.disposeSession(_id));
+}
+
+final class LiteRtLmConversation {
+  LiteRtLmConversation._(this._backend, this._id, _HandleState parent)
+    : _state = _HandleState(parent);
+  final LiteRtLmBackend _backend;
+  final int _id;
+  final _HandleState _state;
+  Future<LiteRtLmResult<String>> send(LiteRtLmMessage message) =>
+      sendMessages([message]);
+  Future<LiteRtLmResult<String>> sendMessages(List<LiteRtLmMessage> messages) =>
+      _collectEvents(sendMessagesStream(messages));
+  Stream<LiteRtLmEvent> sendStream(LiteRtLmMessage message) =>
+      sendMessagesStream([message]);
+
+  /// Appends only new messages to the native conversation history.
+  Stream<LiteRtLmEvent> sendMessagesStream(List<LiteRtLmMessage> messages) {
+    if (_state.closed) return Stream.value(const LiteRtLmFailed(_disposed));
+    final invalid = _validateMessages(messages);
+    if (invalid != null) return Stream.value(LiteRtLmFailed(invalid));
+    final backend = _backend;
+    if (backend is! LiteRtLmAdvancedBackend) {
+      return Stream.value(const LiteRtLmFailed(_unsupported));
     }
-    _disposed = true;
-    await _backend.disposeSession(_id);
+    return (backend as LiteRtLmAdvancedBackend).sendMessagesStream(
+      _id,
+      messages,
+    );
   }
+
+  Future<LiteRtLmResult<LiteRtLmMetrics>> getMetrics() =>
+      _getMetrics(_backend, _id, _state);
+  Future<LiteRtLmResult<LiteRtLmTokenBudget>> budget({
+    List<LiteRtLmMessage> messages = const [],
+    int outputReserve = 0,
+  }) => _budget(_backend, _id, _state, messages, outputReserve);
+  Future<void> cancel() async {
+    if (!_state.closed) await _backend.cancelSession(_id);
+  }
+
+  Future<void> dispose() => _state.close(() => _backend.disposeSession(_id));
+}
+
+Future<LiteRtLmResult<String>> _collectEvents(
+  Stream<LiteRtLmEvent> events,
+) async {
+  await for (final event in events) {
+    switch (event) {
+      case LiteRtLmCompleted(:final text):
+        return LiteRtLmOk(text);
+      case LiteRtLmFailed(:final error):
+        return LiteRtLmErr(error);
+      case LiteRtLmCancelledEvent(:final reason):
+        return LiteRtLmErr(reason);
+      case LiteRtLmToken():
+        break;
+    }
+  }
+  return const LiteRtLmErr(
+    LiteRtLmGenerationFailure('Stream ended without completion'),
+  );
+}
+
+Future<LiteRtLmResult<LiteRtLmMetrics>> _getMetrics(
+  LiteRtLmBackend backend,
+  int id,
+  _HandleState state,
+) async {
+  if (state.closed) return const LiteRtLmErr(_disposed);
+  if (backend is! LiteRtLmAdvancedBackend) {
+    return const LiteRtLmErr(_unsupported);
+  }
+  return (await (backend as LiteRtLmAdvancedBackend).sessionMetrics(
+    id,
+  )).map(LiteRtLmMetrics.fromJson);
+}
+
+Future<LiteRtLmResult<LiteRtLmTokenBudget>> _budget(
+  LiteRtLmBackend backend,
+  int id,
+  _HandleState state,
+  List<LiteRtLmMessage> messages,
+  int outputReserve,
+) async {
+  if (state.closed) return const LiteRtLmErr(_disposed);
+  if (outputReserve < 0) {
+    return const LiteRtLmErr(
+      LiteRtLmInvalidArgument('outputReserve must be nonnegative'),
+    );
+  }
+  final invalid = _validateMessages(messages);
+  if (invalid != null) return LiteRtLmErr(invalid);
+  if (backend is! LiteRtLmAdvancedBackend) {
+    return const LiteRtLmErr(_unsupported);
+  }
+  return (await (backend as LiteRtLmAdvancedBackend).conversationBudget(
+    id,
+    messages,
+    outputReserve,
+  )).map(LiteRtLmTokenBudget.fromJson);
 }
 
 LiteRtLmFailure liteRtLmFailureFromMap(Map<Object?, Object?> map) {
@@ -395,12 +566,29 @@ LiteRtLmFailure liteRtLmFailureFromMap(Map<Object?, Object?> map) {
     'generation-failure' => LiteRtLmGenerationFailure(message),
     'disposed' => LiteRtLmDisposed(message),
     'cancelled' => LiteRtLmCancelled(message),
+    'busy' => LiteRtLmBusy(message),
+    'invalid-argument' => LiteRtLmInvalidArgument(message),
+    'unsupported' => LiteRtLmUnsupported(message),
+    'worker-failure' => LiteRtLmWorkerFailure(message),
+    'backpressure' => LiteRtLmBackpressure(message),
+    'context-full' => LiteRtLmContextFull(
+      requiredTokens: (map['requiredTokens'] as num?)?.toInt(),
+      availableTokens: (map['availableTokens'] as num?)?.toInt(),
+      message: message,
+    ),
     _ => LiteRtLmNativeInitFailure(message),
   };
 }
 
 Map<String, Object?> liteRtLmFailureToMap(LiteRtLmFailure failure) {
-  return <String, Object?>{'code': failure.code, 'message': failure.message};
+  return <String, Object?>{
+    'code': failure.code,
+    'message': failure.message,
+    if (failure is LiteRtLmContextFull) ...{
+      'requiredTokens': failure.requiredTokens,
+      'availableTokens': failure.availableTokens,
+    },
+  };
 }
 
 /// Represents content input to LiteRT-LM, such as text, images, or audio.
@@ -506,4 +694,270 @@ final class LiteRtLmAudioEndContent extends LiteRtLmContent {
 
   @override
   String toString() => 'LiteRtLmAudioEndContent()';
+}
+
+final class LiteRtLmBusy extends LiteRtLmFailure {
+  const LiteRtLmBusy(super.message);
+  @override
+  String get code => 'busy';
+}
+
+final class LiteRtLmInvalidArgument extends LiteRtLmFailure {
+  const LiteRtLmInvalidArgument(super.message);
+  @override
+  String get code => 'invalid-argument';
+}
+
+final class LiteRtLmUnsupported extends LiteRtLmFailure {
+  const LiteRtLmUnsupported(super.message);
+  @override
+  String get code => 'unsupported';
+}
+
+final class LiteRtLmWorkerFailure extends LiteRtLmFailure {
+  const LiteRtLmWorkerFailure(super.message);
+  @override
+  String get code => 'worker-failure';
+}
+
+final class LiteRtLmBackpressure extends LiteRtLmFailure {
+  const LiteRtLmBackpressure(super.message);
+  @override
+  String get code => 'backpressure';
+}
+
+final class LiteRtLmContextFull extends LiteRtLmFailure {
+  const LiteRtLmContextFull({
+    required this.requiredTokens,
+    required this.availableTokens,
+    required String message,
+  }) : super(message);
+  final int? requiredTokens;
+  final int? availableTokens;
+  @override
+  String get code => 'context-full';
+}
+
+/// Role and ordered multimodal content passed directly to native Conversation.
+final class LiteRtLmMessage {
+  const LiteRtLmMessage({required this.role, required this.contents});
+  LiteRtLmMessage.text({this.role = 'user', required String text})
+    : contents = [LiteRtLmContent.text(text)];
+  final String role;
+  final List<LiteRtLmContent> contents;
+  Map<String, Object?> toJson() {
+    if (!const ['system', 'user', 'assistant'].contains(role)) {
+      throw ArgumentError('Unsupported message role: $role');
+    }
+    return {
+      'role': role,
+      'content': normalizeLiteRtLmContents(contents)
+          .map(
+            (content) => switch (content) {
+              LiteRtLmTextContent(:final text) => <String, Object?>{
+                'type': 'text',
+                'text': text,
+              },
+              LiteRtLmImageContent(:final bytes) => <String, Object?>{
+                'type': 'image',
+                'blob': base64Encode(bytes),
+              },
+              LiteRtLmAudioContent(:final bytes) => <String, Object?>{
+                'type': 'audio',
+                'blob': base64Encode(bytes),
+              },
+              _ => throw StateError('Unnormalized end marker'),
+            },
+          )
+          .toList(),
+    };
+  }
+}
+
+/// Legacy end markers are optional, but must immediately follow their modality.
+List<LiteRtLmContent> normalizeLiteRtLmContents(
+  List<LiteRtLmContent> contents,
+) {
+  final normalized = <LiteRtLmContent>[];
+  LiteRtLmContent? previous;
+  for (final content in contents) {
+    if (content is LiteRtLmImageEndContent ||
+        content is LiteRtLmAudioEndContent) {
+      if (!(content is LiteRtLmImageEndContent &&
+              previous is LiteRtLmImageContent) &&
+          !(content is LiteRtLmAudioEndContent &&
+              previous is LiteRtLmAudioContent)) {
+        throw ArgumentError(
+          'End marker must immediately follow matching image/audio content',
+        );
+      }
+    } else {
+      normalized.add(content);
+    }
+    previous = content;
+  }
+  return normalized;
+}
+
+final class LiteRtLmModelInfo {
+  const LiteRtLmModelInfo({
+    this.path = '',
+    this.modelId,
+    this.artifactSha256,
+    this.revision,
+    this.maxContextTokens,
+    this.dynamicContext = false,
+    this.requestedContextTokens,
+    this.effectiveContextTokens,
+    this.runtimeVersion = '',
+    this.runtimeCommit = '',
+    this.backends = const {},
+    this.minimumRuntimeVersion,
+    this.initializationSeconds,
+  });
+  final String path;
+  final String? modelId;
+  final String? artifactSha256;
+  final String? revision;
+  final int? maxContextTokens;
+  final bool dynamicContext;
+  final int? requestedContextTokens;
+  final int? effectiveContextTokens;
+  final String runtimeVersion;
+  final String runtimeCommit;
+  final Map<String, List<String>> backends;
+  final String? minimumRuntimeVersion;
+  final double? initializationSeconds;
+  factory LiteRtLmModelInfo.fromJson(
+    Map<String, Object?> json,
+  ) => LiteRtLmModelInfo(
+    path: json['path'] as String? ?? '',
+    modelId: json['modelId'] as String?,
+    artifactSha256: json['artifactSha256'] as String?,
+    revision: json['revision'] as String?,
+    maxContextTokens: (json['maxContextTokens'] as num?)?.toInt(),
+    dynamicContext: json['dynamicContext'] as bool? ?? false,
+    requestedContextTokens: (json['requestedContextTokens'] as num?)?.toInt(),
+    effectiveContextTokens: (json['effectiveContextTokens'] as num?)?.toInt(),
+    runtimeVersion: json['runtimeVersion'] as String? ?? '',
+    runtimeCommit: json['runtimeCommit'] as String? ?? '',
+    backends:
+        (json['backends'] as Map?)?.map(
+          (key, value) =>
+              MapEntry(key as String, (value as List).cast<String>()),
+        ) ??
+        const {},
+    minimumRuntimeVersion: json['minimumRuntimeVersion'] as String?,
+    initializationSeconds: (json['initializationSeconds'] as num?)?.toDouble(),
+  );
+  Map<String, Object?> toJson() => {
+    'path': path,
+    'modelId': modelId,
+    'artifactSha256': artifactSha256,
+    'revision': revision,
+    'maxContextTokens': maxContextTokens,
+    'dynamicContext': dynamicContext,
+    'requestedContextTokens': requestedContextTokens,
+    'effectiveContextTokens': effectiveContextTokens,
+    'runtimeVersion': runtimeVersion,
+    'runtimeCommit': runtimeCommit,
+    'backends': backends,
+    'minimumRuntimeVersion': minimumRuntimeVersion,
+    'initializationSeconds': initializationSeconds,
+  };
+}
+
+final class LiteRtLmTokenBudget {
+  const LiteRtLmTokenBudget({
+    this.contextTokens = 0,
+    this.usedTokens = 0,
+    this.inputTokens,
+    this.outputReserve = 0,
+    this.requiredTokens,
+    this.remainingTokens,
+    this.exact = false,
+  });
+  final int contextTokens;
+  final int usedTokens;
+  final int? inputTokens;
+  final int outputReserve;
+  final int? requiredTokens;
+  final int? remainingTokens;
+  final bool exact;
+  factory LiteRtLmTokenBudget.fromJson(Map<String, Object?> json) =>
+      LiteRtLmTokenBudget(
+        contextTokens: (json['contextTokens'] as num?)?.toInt() ?? 0,
+        usedTokens: (json['usedTokens'] as num?)?.toInt() ?? 0,
+        inputTokens: (json['inputTokens'] as num?)?.toInt(),
+        outputReserve: (json['outputReserve'] as num?)?.toInt() ?? 0,
+        requiredTokens: (json['requiredTokens'] as num?)?.toInt(),
+        remainingTokens: (json['remainingTokens'] as num?)?.toInt(),
+        exact: json['exact'] as bool? ?? false,
+      );
+  Map<String, Object?> toJson() => {
+    'contextTokens': contextTokens,
+    'usedTokens': usedTokens,
+    'inputTokens': inputTokens,
+    'outputReserve': outputReserve,
+    'requiredTokens': requiredTokens,
+    'remainingTokens': remainingTokens,
+    'exact': exact,
+  };
+}
+
+final class LiteRtLmMetrics {
+  const LiteRtLmMetrics({
+    this.initializationSeconds,
+    this.prefillTokens,
+    this.prefillSeconds,
+    this.timeToFirstTokenSeconds,
+    this.nativeTimeToFirstTokenSeconds,
+    this.decodeTokens,
+    this.decodeTokensPerSecond,
+    this.contextUsedTokens,
+    this.effectiveContextTokens,
+    this.backend,
+  });
+  final double? initializationSeconds;
+  final int? prefillTokens;
+  final double? prefillSeconds;
+
+  /// Wall time from request start to its first token, including prefill.
+  final double? timeToFirstTokenSeconds;
+
+  /// Native time to first token, excluding the separately reported prefill.
+  final double? nativeTimeToFirstTokenSeconds;
+  final int? decodeTokens;
+  final double? decodeTokensPerSecond;
+  final int? contextUsedTokens;
+  final int? effectiveContextTokens;
+  final String? backend;
+  factory LiteRtLmMetrics.fromJson(
+    Map<String, Object?> json,
+  ) => LiteRtLmMetrics(
+    initializationSeconds: (json['initializationSeconds'] as num?)?.toDouble(),
+    prefillTokens: (json['prefillTokens'] as num?)?.toInt(),
+    prefillSeconds: (json['prefillSeconds'] as num?)?.toDouble(),
+    timeToFirstTokenSeconds: (json['timeToFirstTokenSeconds'] as num?)
+        ?.toDouble(),
+    nativeTimeToFirstTokenSeconds:
+        (json['nativeTimeToFirstTokenSeconds'] as num?)?.toDouble(),
+    decodeTokens: (json['decodeTokens'] as num?)?.toInt(),
+    decodeTokensPerSecond: (json['decodeTokensPerSecond'] as num?)?.toDouble(),
+    contextUsedTokens: (json['contextUsedTokens'] as num?)?.toInt(),
+    effectiveContextTokens: (json['effectiveContextTokens'] as num?)?.toInt(),
+    backend: json['backend'] as String?,
+  );
+  Map<String, Object?> toJson() => {
+    'initializationSeconds': initializationSeconds,
+    'prefillTokens': prefillTokens,
+    'prefillSeconds': prefillSeconds,
+    'timeToFirstTokenSeconds': timeToFirstTokenSeconds,
+    'nativeTimeToFirstTokenSeconds': nativeTimeToFirstTokenSeconds,
+    'decodeTokens': decodeTokens,
+    'decodeTokensPerSecond': decodeTokensPerSecond,
+    'contextUsedTokens': contextUsedTokens,
+    'effectiveContextTokens': effectiveContextTokens,
+    'backend': backend,
+  };
 }

@@ -1,6 +1,17 @@
 export 'src/types.dart'
     show
         LiteRtLm,
+        LiteRtLmMessage,
+        LiteRtLmConversation,
+        LiteRtLmModelInfo,
+        LiteRtLmTokenBudget,
+        LiteRtLmMetrics,
+        LiteRtLmBusy,
+        LiteRtLmContextFull,
+        LiteRtLmInvalidArgument,
+        LiteRtLmUnsupported,
+        LiteRtLmWorkerFailure,
+        LiteRtLmBackpressure,
         LiteRtLmCancelled,
         LiteRtLmCancelledEvent,
         LiteRtLmCompleted,

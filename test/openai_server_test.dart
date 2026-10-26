@@ -7,17 +7,17 @@ import 'package:lib_litert_lm/src/fake_backend.dart';
 
 void main() {
   late LiteRtLm client;
+  late FakeLiteRtLmBackend backend;
   late LiteRtLmEngine engine;
   late LiteRtLmOpenAiServer server;
   late HttpClient http;
 
   setUp(() async {
-    client = LiteRtLm.testing(
-      FakeLiteRtLmBackend(
-        generateText: 'server response',
-        streamTokens: const <String>['server', ' ', 'response'],
-      ),
+    backend = FakeLiteRtLmBackend(
+      generateText: 'server response',
+      streamTokens: const <String>['server', ' ', 'response'],
     );
+    client = LiteRtLm.testing(backend);
     engine = (await client.loadEngine(
       const LiteRtLmEngineConfig(modelPath: '/tmp/model.litertlm'),
     )).valueOrNull!;
@@ -35,6 +35,176 @@ void main() {
     await server.close();
     await engine.dispose();
     await client.dispose();
+  });
+
+  test(
+    'chat preserves roles and unavailable usage stays unavailable',
+    () async {
+      final response = await _postJson(
+        http,
+        server.uri!,
+        '/v1/chat/completions',
+        {
+          'messages': [
+            {'role': 'system', 'content': 'rules'},
+            {'role': 'user', 'content': 'hello'},
+            {'role': 'assistant', 'content': 'prior'},
+            {
+              'role': 'user',
+              'content': [
+                {'type': 'text', 'text': 'next'},
+              ],
+            },
+          ],
+        },
+      );
+      expect(response.statusCode, 200);
+      expect(backend.sentMessages.single.map((m) => m.role), [
+        'system',
+        'user',
+        'assistant',
+        'user',
+      ]);
+      expect(response.json['usage'], isNull);
+    },
+  );
+
+  test(
+    'rejects unsupported fields, roles and invalid numeric parameters',
+    () async {
+      for (final extra in <Map<String, Object?>>[
+        {'tools': []},
+        {'top_p': 0.5},
+        {'temperature': -1},
+        {'temperature': 'hot'},
+        {'max_tokens': 1.5},
+        {'top_k': 0},
+        {'stream': 'yes'},
+        {'seed': 1.5},
+        {'n': 2},
+        {'n': 1.0},
+        {'seed': 2147483648},
+        {'max_tokens': 2147483648},
+        {'apply_prompt_template': false},
+        {'prompt': 'ignored'},
+      ]) {
+        final response = await _postJson(
+          http,
+          server.uri!,
+          '/v1/chat/completions',
+          {
+            'messages': [
+              {'role': 'user', 'content': 'hello'},
+            ],
+            ...extra,
+          },
+        );
+        expect(response.statusCode, 400, reason: '$extra');
+      }
+      final role = await _postJson(http, server.uri!, '/v1/chat/completions', {
+        'messages': [
+          {'role': 'tool', 'content': 'hello'},
+        ],
+      });
+      expect(role.statusCode, 400);
+      final batch = await _postJson(http, server.uri!, '/v1/completions', {
+        'prompt': ['one', 'two'],
+      });
+      expect(batch.statusCode, 400);
+    },
+  );
+
+  test(
+    'server close cancels and disposes active streaming generations',
+    () async {
+      final activeBackend = FakeLiteRtLmBackend(
+        streamTokens: ['a', 'b', 'c'],
+        tokenDelay: const Duration(milliseconds: 80),
+      );
+      final activeClient = LiteRtLm.testing(activeBackend);
+      final activeEngine = (await activeClient.loadEngine(
+        const LiteRtLmEngineConfig(modelPath: '/tmp/model.litertlm'),
+      )).valueOrNull!;
+      final activeServer = LiteRtLmOpenAiServer(engine: activeEngine);
+      await activeServer.bind(port: 0);
+      final activeHttp = HttpClient();
+      addTearDown(() async {
+        activeHttp.close(force: true);
+        await activeServer.close();
+        await activeClient.dispose();
+      });
+      final request = await activeHttp.postUrl(
+        activeServer.uri!.replace(path: '/v1/chat/completions'),
+      );
+      request.headers.contentType = ContentType.json;
+      request.write(
+        jsonEncode({
+          'stream': true,
+          'messages': [
+            {'role': 'user', 'content': 'hi'},
+          ],
+        }),
+      );
+      final response = await request.close();
+      final reading = response.drain<void>().onError((
+        Object error,
+        StackTrace stack,
+      ) {
+        expect(error, anyOf(isA<HttpException>(), isA<SocketException>()));
+      });
+      final firstClose = activeServer.close();
+      final secondClose = activeServer.close();
+      await Future.wait([firstClose, secondClose]);
+      await reading;
+      expect(activeBackend.cancelledSessions, contains(1));
+      expect(activeBackend.disposedSessions, contains(1));
+    },
+  );
+
+  test('client disconnect cancels and disposes streaming generation', () async {
+    final activeBackend = FakeLiteRtLmBackend(
+      streamTokens: ['a', 'b', 'c'],
+      tokenDelay: const Duration(milliseconds: 80),
+    );
+    final activeClient = LiteRtLm.testing(activeBackend);
+    final activeEngine = (await activeClient.loadEngine(
+      const LiteRtLmEngineConfig(modelPath: '/tmp/model.litertlm'),
+    )).valueOrNull!;
+    final activeServer = LiteRtLmOpenAiServer(engine: activeEngine);
+    await activeServer.bind(port: 0);
+    final activeHttp = HttpClient();
+    addTearDown(() async {
+      activeHttp.close(force: true);
+      await activeServer.close();
+      await activeClient.dispose();
+    });
+    final request = await activeHttp.postUrl(
+      activeServer.uri!.replace(path: '/v1/chat/completions'),
+    );
+    request.headers.contentType = ContentType.json;
+    request.write(
+      jsonEncode({
+        'stream': true,
+        'messages': [
+          {'role': 'user', 'content': 'hi'},
+        ],
+      }),
+    );
+    final response = await request.close();
+    final subscription = response.listen(
+      (_) {},
+      onError: (Object error) {
+        expect(error, anyOf(isA<HttpException>(), isA<SocketException>()));
+      },
+    );
+    activeHttp.close(force: true);
+    await subscription.cancel();
+    await (() async {
+      while (activeBackend.disposedSessions.isEmpty) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    })().timeout(const Duration(seconds: 2));
+    expect(activeBackend.cancelledSessions, contains(1));
   });
 
   test('GET /v1/models returns OpenAI-compatible list', () async {
@@ -68,6 +238,29 @@ void main() {
     expect(choices.single['message']['role'], 'assistant');
     expect(choices.single['message']['content'], 'server response');
   });
+
+  test(
+    'usage reports supplied runtime counts without text estimates',
+    () async {
+      backend.metrics.addAll({'prefillTokens': 17, 'decodeTokens': 3});
+      final response = await _postJson(
+        http,
+        server.uri!,
+        '/v1/chat/completions',
+        {
+          'messages': [
+            {'role': 'user', 'content': 'one'},
+          ],
+        },
+      );
+      expect(response.statusCode, 200);
+      expect(response.json['usage'], {
+        'prompt_tokens': 17,
+        'completion_tokens': 3,
+        'total_tokens': 20,
+      });
+    },
+  );
 
   test('POST /v1/chat/completions streams SSE chunks', () async {
     final response = await _postText(
