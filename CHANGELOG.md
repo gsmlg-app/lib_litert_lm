@@ -22,6 +22,10 @@
   provenance/archive checks and opt-in Android Gemma-4-E2B capacity/media tooling.
 - Pin TensorFlow's Skylib 1.9.0 before Rules Shell initialization and record the
   checksum-fixed override in native provenance; reject cached pin drift.
+- Query Bazelisk provenance in the actual build workspace and report toolchain
+  drift precisely. Allow explicit release reuse of a matching committed bundle
+  while requiring the full Vulkan/NPU inventory and retaining native fixture,
+  provenance and final APK/AAB gates.
 - Replace example placeholder media with real file inputs, add context selection
   and persistent chat/reset, and correct fake UI smoke/native-loading claims.
 - No 4K/8K/16K/32K real-model tier has been verified; no 64K/128K support is claimed.

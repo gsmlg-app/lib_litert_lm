@@ -12,6 +12,11 @@ on:
         required: true
         default: main
         type: string
+      rebuild_native:
+        description: Rebuild native bundle (false requires matching committed provenance)
+        required: true
+        default: true
+        type: boolean
 
 permissions:
   actions: write
@@ -120,6 +125,7 @@ jobs:
         run: flutter test integration_test/app_e2e_test.dart -d flutter-tester
 
       - name: Build native Android Vulkan/NPU bundle
+        if: ${{ inputs.rebuild_native }}
         env:
           ABI: arm64-v8a
           NDK_VERSION: 28.2.13676358
@@ -128,6 +134,10 @@ jobs:
 
       - name: Verify native build provenance
         run: python3 tool/verify_android_bundle.py android/src/main/jniLibs/arm64-v8a --require-provenance
+
+      - name: Record committed native bundle reuse
+        if: ${{ !inputs.rebuild_native }}
+        run: echo "Reusing the committed native bundle after source-contract, toolchain-record, library-hash, ELF and export verification. No native compilation was requested for this release run." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Build Android arm64 APK and AAB
         working-directory: example

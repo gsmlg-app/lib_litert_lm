@@ -109,10 +109,38 @@ v0.12 outputs only after verification passed. The new upstream GPU inventory
 includes `libwebgpu_dawn.so`.
 
 Staging and installed-bundle checks passed for all 191 required C/bridge symbols
-and every ARM64 library's `PT_LOAD` alignment (at least 16 KiB). No second native
-repair build was needed. This is compilation and ABI evidence, not Android
-loading or Gemma inference. See Android validation for final APK/AAB verification
-and the separate unrun device/model acceptance gates.
+and every ARM64 library's `PT_LOAD` alignment (at least 16 KiB).
+The second follow-up build on GitHub's Linux runner completed compilation and
+linking (4,282 actions, 1051.188 seconds), then stopped during provenance writing:
+the Bazelisk version query ran outside the upstream workspace and could select
+a different version from the build. The query now uses the build workspace;
+a directory-sensitive regression reproduces the failure and validates the fix,
+including rejection of actual NDK/Bazel drift. This provenance fix has not had
+another complete native build. These are compilation and ABI results, not
+Android loading or Gemma inference. See Android validation for final APK/AAB
+verification and the separate unrun device/model acceptance gates.
+
+## Release an already built bundle
+
+The Release workflow rebuilds native libraries by default. When the requested
+source contract is already represented by a committed `native-build.json`, an
+explicit `rebuild_native=false` reuses that bundle. The same provenance, full
+symbol inventory, ELF, native fixture, package test and final APK/AAB checks
+remain mandatory; a stale/missing manifest or any source/library hash drift
+still fails. Release provenance also requires `vulkan,npu`, all three NPU build
+targets and the complete default 11-library inventory; development subsets
+cannot pass even with internally matching hashes. This avoids repeating an
+expensive native build when publishing an already built and checked artifact.
+It does not create new build evidence.
+
+```bash
+gh workflow run release.yml --ref main \
+  -f version=0.1.1 -f git_ref=main -f rebuild_native=false
+```
+
+Release creates the GitHub assets/tag and then dispatches `publish.yml` for
+pub.dev. Check both runs and the actual published archive before reporting
+publication as complete. Neither workflow performs Android model acceptance.
 
 ## Callback ownership and control state
 

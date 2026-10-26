@@ -16,6 +16,10 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 VERIFIER = ROOT / 'tool/verify_android_bundle.py'
 FLAGS = ['--config=android_arm64', '--config=public_cache',
          '--define=litert_link_capi_so=false', '--define=resolve_symbols_in_exec=false']
+TARGETS = ['//c:liblitert_lm_c.so',
+           '@litert//litert/vendors/google_tensor/dispatch:dispatch_api_so',
+           '@litert//litert/vendors/qualcomm/dispatch:dispatch_api_so',
+           '@litert//litert/vendors/mediatek/dispatch:dispatch_api_so']
 
 
 def elf(*, machine=183, segments=None):
@@ -59,8 +63,9 @@ class BundleVerifierTest(unittest.TestCase):
             args += ['--write-provenance-source', str(source)]
             env = dict(os.environ, PATH=str(self.root) + os.pathsep + os.environ['PATH'])
         if metadata:
-            args += ['--ndk-home', str(self.root / 'ndk'), '--bazel', str(self.root / 'bazel'),
-                     '--build-target', '//c:liblitert_lm_c.so']
+            args += ['--ndk-home', str(self.root / 'ndk'), '--bazel', str(self.root / 'bazel')]
+            for target in TARGETS:
+                args += ['--build-target', target]
             args += ['--build-flag=' + flag for flag in FLAGS]
         return subprocess.run(args, capture_output=True, text=True, env=env)
 
@@ -164,20 +169,46 @@ class BundleVerifierTest(unittest.TestCase):
                 'litert': 'ca21dc99de51c76bdcc572afeea1dd937d3c9e5c',
                 'tensorflow': 'a1179d3c224967bd979950b823d5ce2a7e8f4c94'},
             'build_flags': FLAGS,
-            'build_targets': ['//c:liblitert_lm_c.so'],
+            'build_targets': TARGETS,
+            'accelerators': ['vulkan', 'npu'],
             'dependency_overrides': {'rules_cc': {'version': '0.2.25',
                 'sha256': 'bd7124a844d0403b4b353bcea34d6c8b2ba88dc26881c26c9ee668da89b71846'},
                 'bazel_skylib': {'version': '1.9.0',
                 'sha256': '3b5b49006181f5f8ff626ef8ddceaa95e9bb8ad294f7b5d7b11ea9f7ddaf8c59'}},
-            'libraries': {'liblitert_lm_c.so': digest(self.bundle / 'liblitert_lm_c.so')},
+            'libraries': {path.name: digest(path) for path in self.bundle.glob('*.so')},
             'contract_files': {str(path.relative_to(ROOT)): digest(path) for path in files},
         }
         return manifest
 
+    def make_release_provenance(self):
+        for name in ('libGemmaModelConstraintProvider.so', 'libLiteRtDispatch_GoogleTensor.so',
+                     'libLiteRtDispatch_MediaTek.so', 'libLiteRtDispatch_Qualcomm.so',
+                     'libLiteRtGpuAccelerator.so', 'libLiteRtOpenClAccelerator.so',
+                     'libLiteRtTopKOpenClSampler.so', 'libLiteRtTopKWebGpuSampler.so',
+                     'libLiteRtWebGpuAccelerator.so', 'libwebgpu_dawn.so'):
+            (self.bundle / name).write_bytes(elf())
+        return self.make_provenance()
+
     def test_accepts_matching_provenance(self):
-        (self.bundle / 'native-build.json').write_text(json.dumps(self.make_provenance()))
+        (self.bundle / 'native-build.json').write_text(json.dumps(self.make_release_provenance()))
         result = self.run_verifier(provenance=True)
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_rejects_development_subset_even_with_matching_hashes(self):
+        for field, value, error in [
+            ('accelerators', ['cpu'], 'release accelerators'),
+            ('build_targets', ['//c:liblitert_lm_c.so'], 'NPU build targets'),
+            ('library', 'libwebgpu_dawn.so', 'libwebgpu_dawn.so'),
+        ]:
+            with self.subTest(field=field):
+                manifest = self.make_release_provenance()
+                if field == 'library':
+                    (self.bundle / value).unlink()
+                    manifest['libraries'].pop(value)
+                else:
+                    manifest[field] = value
+                (self.bundle / 'native-build.json').write_text(json.dumps(manifest))
+                self.assert_rejected(error, provenance=True)
 
     def test_rejects_missing_or_different_toolchain_and_build_records(self):
         for field, bad, error in [
@@ -189,7 +220,7 @@ class BundleVerifierTest(unittest.TestCase):
             ('dependency_overrides', {}, 'compatibility override'),
         ]:
             with self.subTest(field=field, value=bad):
-                manifest = self.make_provenance()
+                manifest = self.make_release_provenance()
                 manifest[field] = bad
                 (self.bundle / 'native-build.json').write_text(json.dumps(manifest))
                 self.assert_rejected(error, provenance=True)
@@ -212,20 +243,36 @@ class BundleVerifierTest(unittest.TestCase):
         (self.root / 'ndk').mkdir()
         (self.root / 'ndk/source.properties').write_text('Pkg.Revision = 28.2.13676358\n')
         bazel = self.root / 'bazel'
-        bazel.write_text('#!/bin/sh\nprintf "bazel 7.6.1\\n"\n')
+        # Bazelisk selects a version from the working directory's
+        # .bazelversion. Outside the build workspace it can select another one.
+        (source / '.bazelversion').write_text('7.6.1\n')
+        bazel.write_text('#!/bin/sh\n'
+                         'if [ -f .bazelversion ]; then\n'
+                         '  printf "bazel %s\\n" "$(cat .bazelversion)"\n'
+                         'else\n'
+                         '  printf "bazel 9.0.0\\n"\n'
+                         'fi\n')
         bazel.chmod(0o755)
         result = self.run_verifier(source=source, metadata=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         recorded = json.loads((self.bundle / 'native-build.json').read_text())
         for field in ['toolchain', 'build_flags', 'build_targets', 'upstream_dependencies', 'dependency_overrides']:
             self.assertEqual(recorded[field], expected[field])
+        manifest_before_failure = (self.bundle / 'native-build.json').read_bytes()
+        (source / '.bazelversion').write_text('8.0.0\n')
+        result = self.run_verifier(source=source, metadata=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Bazel='bazel 8.0.0'", result.stderr)
+        self.assertEqual((self.bundle / 'native-build.json').read_bytes(), manifest_before_failure)
+        (source / '.bazelversion').write_text('7.6.1\n')
         (self.root / 'ndk/source.properties').write_text('Pkg.Revision = 27.0.0\n')
         result = self.run_verifier(source=source, metadata=True)
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn('Actual NDK/Bazel version', result.stderr)
+        self.assertIn('NDK=27.0.0', result.stderr)
+        self.assertEqual((self.bundle / 'native-build.json').read_bytes(), manifest_before_failure)
 
     def test_rejects_stale_contract_provenance(self):
-        manifest = self.make_provenance()
+        manifest = self.make_release_provenance()
         manifest['contract_files']['ffigen.yaml'] = 'stale'
         (self.bundle / 'native-build.json').write_text(json.dumps(manifest))
         self.assert_rejected('contract hash mismatch', provenance=True)

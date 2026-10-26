@@ -30,6 +30,18 @@ UPSTREAM_DEPENDENCIES = {
     'litert': 'ca21dc99de51c76bdcc572afeea1dd937d3c9e5c',
     'tensorflow': 'a1179d3c224967bd979950b823d5ce2a7e8f4c94',
 }
+RELEASE_LIBRARIES = {
+    MAIN_LIBRARY, 'libGemmaModelConstraintProvider.so',
+    'libLiteRtDispatch_GoogleTensor.so', 'libLiteRtDispatch_MediaTek.so',
+    'libLiteRtDispatch_Qualcomm.so', 'libLiteRtGpuAccelerator.so',
+    'libLiteRtOpenClAccelerator.so', 'libLiteRtTopKOpenClSampler.so',
+    'libLiteRtTopKWebGpuSampler.so', 'libLiteRtWebGpuAccelerator.so',
+    'libwebgpu_dawn.so',
+}
+NPU_TARGETS = {
+    f'@litert//litert/vendors/{vendor}/dispatch:dispatch_api_so'
+    for vendor in ('google_tensor', 'qualcomm', 'mediatek')
+}
 
 
 class VerificationError(Exception):
@@ -161,9 +173,16 @@ def write_provenance(bundle, source, accelerators, *, ndk_home=None, bazel=None,
         raise VerificationError('Writing provenance requires actual NDK/Bazel, build flags and targets')
     properties = (Path(ndk_home) / 'source.properties').read_text()
     revision = re.search(r'^Pkg.Revision\s*=\s*(\S+)\s*$', properties, re.MULTILINE)
-    bazel_result = subprocess.run([bazel, '--version'], capture_output=True, text=True, check=True)
+    # Bazelisk resolves .bazelversion relative to its working directory, just as
+    # it did for the build. Querying from this repository can select a different
+    # Bazel even though the upstream build used the pinned toolchain.
+    bazel_result = subprocess.run([bazel, '--version'], cwd=source,
+                                  capture_output=True, text=True, check=True)
     if not revision or revision[1] != NDK_VERSION or bazel_result.stdout.strip() != f'bazel {BAZEL_VERSION}':
-        raise VerificationError('Actual NDK/Bazel version differs from the pinned toolchain')
+        raise VerificationError('Actual NDK/Bazel version differs from the pinned toolchain: '
+                                f'NDK={revision[1] if revision else "unavailable"}, '
+                                f'Bazel={bazel_result.stdout.strip()!r}; '
+                                f'expected NDK={NDK_VERSION}, Bazel={BAZEL_VERSION}')
     workspace = (source / 'WORKSPACE').read_text()
     refs = dict(re.findall(r'^([A-Z_]+)_REF\s*=\s*"([0-9a-f]{40})"', workspace, re.MULTILINE))
     dependencies = {key: refs.get(key.upper()) for key in UPSTREAM_DEPENDENCIES}
@@ -215,6 +234,14 @@ def verify_provenance(bundle):
     targets = manifest.get('build_targets', [])
     if not isinstance(targets, list) or f'//c:{MAIN_LIBRARY}' not in targets:
         raise VerificationError(f'{path}: missing native build targets')
+    if manifest.get('accelerators') != ['vulkan', 'npu']:
+        raise VerificationError(f'{path}: release accelerators must be vulkan,npu')
+    if not all(target in targets for target in NPU_TARGETS):
+        raise VerificationError(f'{path}: missing release NPU build targets')
+    missing_libraries = RELEASE_LIBRARIES - set(actual)
+    if missing_libraries:
+        raise VerificationError(f'{path}: incomplete release inventory: '
+                                f'{", ".join(sorted(missing_libraries))}')
     if manifest.get('dependency_overrides') != dependency_overrides():
         raise VerificationError(f'{path}: compatibility override mismatch')
     print(f'OK provenance: pinned source commit {manifest["litert_lm_commit"]}, ABI and file hashes')

@@ -216,6 +216,9 @@ python3 -m unittest discover -s test/build -v
 checking all Dart/bridge symbols, 16 KiB ELF/ZIP alignment and actual APK/AAB
 packaging. CI and publish workflows require matching `native-build.json` provenance
 and package checks; `flutter build apk --config-only` is only a configuration check.
+Release rebuilds the native bundle by default. Explicit `rebuild_native=false`
+reuses a committed bundle only after the same mandatory provenance and package
+checks; see the [release instructions](doc/native-build.md#release-an-already-built-bundle).
 The example release signing configuration uses the Android debug key; its artifacts
 are validation/demo outputs. Publish workflows do not establish device inference
 or long-context acceptance and must not advertise unrun tiers as verified.
