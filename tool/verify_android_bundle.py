@@ -132,11 +132,14 @@ def pinned_commit():
 
 def dependency_overrides():
     source = (ROOT / 'tool/build_litert_lm_android.sh').read_text()
-    version = re.search(r'RULES_CC_VERSION="([^"]+)"', source)
-    checksum = re.search(r'RULES_CC_SHA256="([0-9a-f]{64})"', source)
-    if not version or not checksum:
-        raise VerificationError('Cannot determine pinned rules_cc build override')
-    return {'rules_cc': {'version': version[1], 'sha256': checksum[1]}}
+    overrides = {}
+    for name in ('rules_cc', 'bazel_skylib'):
+        version = re.search(name.upper() + r'_VERSION="([^"]+)"', source)
+        checksum = re.search(name.upper() + r'_SHA256="([0-9a-f]{64})"', source)
+        if not version or not checksum:
+            raise VerificationError(f'Cannot determine pinned {name} build override')
+        overrides[name] = {'version': version[1], 'sha256': checksum[1]}
+    return overrides
 
 
 def write_provenance(bundle, source, accelerators, *, ndk_home=None, bazel=None,

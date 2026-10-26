@@ -216,19 +216,22 @@ The host used Flutter 3.47.8 / Dart 3.13.7 and NDK 28.2.13676358.
 | Package `flutter test --no-pub` | 42 tests passed, including the 16 native FFI cases |
 | Example `flutter test --no-pub` | 7 widget/control-flow tests passed |
 | UI smoke on `flutter-tester` | 1 fake-backend integration test passed; no native-loading evidence |
-| Python build/device-tool regressions | 51 tests passed |
+| Python build/device-tool regressions | 54 tests passed, including Skylib bootstrap ordering and cached-pin drift |
 | `flutter analyze`, Dart formatting and binding regeneration comparison | Passed |
-| Full native bundle build | Blocked during dependency analysis by Rules CC / Skylib conflict; see native-build.md |
-| Actual release APK | Built, 71.2 MB; existing debug signing configuration and old JNI bundle |
-| Actual release AAB | Built, 63.3 MB; existing debug signing configuration and old JNI bundle |
-| APK/AAB provenance and ABI verification | Failed as required: no current native-build.json; old runtime lacks new C/bridge exports |
-| Android CPU/GPU 4K/8K/16K/32K matrix, native media decoder, phase trace, background/foreground | Not run; requires a fresh verified native bundle, exact device and pinned model/media |
+| Full native bundle build | Passed after pinning Skylib 1.9.0; 4,350 actions, including both bridge sources, completed in 1040.280 seconds |
+| Installed bundle provenance and ABI | Passed: 11 ARM64 libraries, all 191 required C/bridge exports and every PT_LOAD aligned to at least 16 KiB |
+| Actual release APK | Built with the new bundle, 75.1 MB; existing debug signing configuration |
+| Actual release AAB | Built with the new bundle, 68.7 MB; existing debug signing configuration |
+| APK/AAB provenance, inventory and ABI verification | Passed: each contains 13 verified ARM64 libraries including Flutter; all 191 required symbols; APK ZIP alignment also passed |
+| Android CPU/GPU 4K/8K/16K/32K matrix, native media decoder, phase trace, background/foreground | Not run; requires an exact device and pinned model/media |
 
-The APK/AAB build results establish final application packaging completed; they
-are not valid upgraded-runtime or release acceptance. The ABI verifier also
-rejects those old packaged libraries without `--require-provenance`, proving
-missing exports are independently detected. Release and publication remain
-blocked; no unrun context tier may be described as verified support.
+Earlier APK/AAB builds carrying the old v0.12 bundle were rejected both for
+missing provenance and independently for missing new exports. After the complete
+v0.18.1 rebuild, the new bundle and both final packages pass those checks. The
+first authorized follow-up native build succeeded; a second local repair build
+was unnecessary. These are compile/ABI/package results, not proof of Android
+native loading, model inference or context capacity. No unrun tier may be
+described as verified support, including in package/release notes.
 
 The first hosted CI run also exposed an SDK bootstrap failure: setup-android v3
 defaults to installing the removed `tools` package. All workflows now explicitly

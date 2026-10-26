@@ -166,7 +166,9 @@ class BundleVerifierTest(unittest.TestCase):
             'build_flags': FLAGS,
             'build_targets': ['//c:liblitert_lm_c.so'],
             'dependency_overrides': {'rules_cc': {'version': '0.2.25',
-                'sha256': 'bd7124a844d0403b4b353bcea34d6c8b2ba88dc26881c26c9ee668da89b71846'}},
+                'sha256': 'bd7124a844d0403b4b353bcea34d6c8b2ba88dc26881c26c9ee668da89b71846'},
+                'bazel_skylib': {'version': '1.9.0',
+                'sha256': '3b5b49006181f5f8ff626ef8ddceaa95e9bb8ad294f7b5d7b11ea9f7ddaf8c59'}},
             'libraries': {'liblitert_lm_c.so': digest(self.bundle / 'liblitert_lm_c.so')},
             'contract_files': {str(path.relative_to(ROOT)): digest(path) for path in files},
         }
@@ -215,7 +217,7 @@ class BundleVerifierTest(unittest.TestCase):
         result = self.run_verifier(source=source, metadata=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         recorded = json.loads((self.bundle / 'native-build.json').read_text())
-        for field in ['toolchain', 'build_flags', 'build_targets', 'upstream_dependencies']:
+        for field in ['toolchain', 'build_flags', 'build_targets', 'upstream_dependencies', 'dependency_overrides']:
             self.assertEqual(recorded[field], expected[field])
         (self.root / 'ndk/source.properties').write_text('Pkg.Revision = 27.0.0\n')
         result = self.run_verifier(source=source, metadata=True)

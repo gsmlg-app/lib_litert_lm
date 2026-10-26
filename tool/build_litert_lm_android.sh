@@ -11,6 +11,8 @@ readonly BAZEL_VERSION="${BAZEL_VERSION:-7.6.1}"
 readonly NDK_VERSION="${NDK_VERSION:-28.2.13676358}"
 readonly RULES_CC_VERSION="0.2.25"
 readonly RULES_CC_SHA256="bd7124a844d0403b4b353bcea34d6c8b2ba88dc26881c26c9ee668da89b71846"
+readonly BAZEL_SKYLIB_VERSION="1.9.0"
+readonly BAZEL_SKYLIB_SHA256="3b5b49006181f5f8ff626ef8ddceaa95e9bb8ad294f7b5d7b11ea9f7ddaf8c59"
 readonly LIB_NAME="liblitert_lm_c.so"
 readonly ACCELERATORS="${ACCELERATORS:-vulkan,npu}"
 readonly NPU_TARGETS="${NPU_TARGETS:-@litert//litert/vendors/google_tensor/dispatch:dispatch_api_so @litert//litert/vendors/qualcomm/dispatch:dispatch_api_so @litert//litert/vendors/mediatek/dispatch:dispatch_api_so}"
@@ -164,6 +166,38 @@ patch_minizip_archive() {
 
   perl -0pi -e 's#url = "https://zlib\.net/fossils/zlib-1\.3\.1\.tar\.gz",#urls = [\n        "https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz",\n        "https://zlib.net/fossils/zlib-1.3.1.tar.gz",\n    ],#' \
     "$workspace_file"
+}
+
+patch_bazel_skylib_archive() {
+  local src_dir="$1"
+  # Rules Shell otherwise predeclares Skylib 1.7.1, whose bool_flag lacks the
+  # scope attribute required by Rules CC. Use the pinned TensorFlow archive.
+  python3 - "$src_dir/WORKSPACE" "$BAZEL_SKYLIB_VERSION" "$BAZEL_SKYLIB_SHA256" <<'PYSKYLIB'
+import pathlib
+import sys
+path = pathlib.Path(sys.argv[1])
+version, checksum = sys.argv[2:]
+source = path.read_text()
+marker = '# lib_litert_lm: Skylib required by the pinned TensorFlow workspace.\n'
+declaration = f'''
+{marker}http_archive(
+    name = "bazel_skylib",
+    sha256 = "{checksum}",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/{version}/bazel-skylib-{version}.tar.gz",
+        "https://github.com/bazelbuild/bazel-skylib/releases/download/{version}/bazel-skylib-{version}.tar.gz",
+    ],
+)
+'''
+if marker in source:
+    if declaration not in source:
+        sys.exit('Cached Skylib patch differs from the pinned archive; inspect before rebuilding')
+else:
+    anchor = 'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")\n'
+    if source.count(anchor) != 1 or 'name = "bazel_skylib"' in source:
+        sys.exit('Unexpected upstream Skylib declaration; inspect before patching')
+    path.write_text(source.replace(anchor, anchor + declaration, 1))
+PYSKYLIB
 }
 
 patch_rules_cc_archive() {
@@ -404,6 +438,7 @@ main() {
   src_dir="$(checkout_source)"
   patch_shared_target "$src_dir"
   patch_minizip_archive "$src_dir"
+  patch_bazel_skylib_archive "$src_dir"
   patch_rules_cc_archive "$src_dir"
   patch_litert_oss_hooks "$src_dir"
   fetch_gpu_prebuilts "$src_dir"

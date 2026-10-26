@@ -1,8 +1,9 @@
-## Unreleased
+## 0.1.1
 
 - Target LiteRT-LM v0.18.1 at bda624851d74be34d4e1f7fac1fc4155939539c7;
   vendor its Conversation/ModelInfo/error headers and regenerate the opaque ABI.
-  Native bundle compilation/provenance and Android acceptance remain release gates.
+  The complete ARM64 bundle, all required symbols and final APK/AAB provenance
+  checks passed. Android device/model acceptance remains unrun.
 - Copy native borrowed callback strings inside a C++ bridge with a bounded owned
   event queue; remove asynchronous Dart callbacks over borrowed memory.
 - Unify Future/Stream generation, cancellation and hierarchical close. Join native
@@ -19,6 +20,8 @@
   retain stateless HTTP semantics and cancel active operations on server shutdown.
 - Add sanitizer/native-thread FFI regressions, fail-closed arm64 ELF/symbol/
   provenance/archive checks and opt-in Android Gemma-4-E2B capacity/media tooling.
+- Pin TensorFlow's Skylib 1.9.0 before Rules Shell initialization and record the
+  checksum-fixed override in native provenance; reject cached pin drift.
 - Replace example placeholder media with real file inputs, add context selection
   and persistent chat/reset, and correct fake UI smoke/native-loading claims.
 - No 4K/8K/16K/32K real-model tier has been verified; no 64K/128K support is claimed.

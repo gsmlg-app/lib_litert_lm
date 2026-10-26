@@ -19,7 +19,7 @@ binaries cannot be used with the current Conversation/bridge bindings.
 | Core linkage | `linkstatic = True`, `--dynamic_mode=off`, `--define=litert_link_capi_so=false` |
 | Linker layout | `-z max-page-size=16384`, `-z common-page-size=16384` |
 
-`tool/build_litert_lm_android.sh` copies both files from `native/` into the pinned
+`tool/build_litert_lm_android.sh` copies the bridge sources from `native/` into the pinned
 checkout, adds a shared target around `//c:engine`, and exports `litert_lm_*`,
 `lrlm_*` and `LiteRt*`. It also links Conversation, ModelInfo and error APIs.
 The C++ model adapter intentionally depends on internal APIs from this exact
@@ -87,24 +87,32 @@ reproducible compatibility patches:
 
 - Predeclare TensorFlow's Rules CC `0.2.25` archive and initialize its
   `bazel_features`/compatibility proxy before dependent workspace loads.
+- Predeclare TensorFlow's checksum-fixed Skylib `1.9.0` before Rules Shell can
+  select `1.7.1`. Rules CC needs the newer `bool_flag` `scope` attribute. Cached
+  patch drift or unexpected existing declarations fail rather than silently
+  selecting another version. Both overrides are recorded in provenance.
 - Remove one unconditional Google-only profiling dependency from LiteRT's public
   Google Tensor dispatch BUILD target. Actual profiling code is already disabled
   by `LITERT_GOOGLE_TENSOR_HAS_HOOKS`; the dispatch target remains in the bundle.
 - Keep the checksum-fixed zlib archive with an official GitHub release mirror.
 
-As of the 2026-10-27 local run, complete compilation remains **blocked during
-Bazel analysis**: Rules CC `0.2.25` requires Skylib >=1.8.0, but Rules Shell
-predeclares `1.7.1`, whose `bool_flag` lacks the `scope` attribute. The pinned
-TensorFlow workspace requests Skylib `1.9.0`, SHA256
+Earlier 2026-10-27 runs were **blocked during Bazel analysis**: Rules CC `0.2.25`
+requires Skylib >=1.8.0, but Rules Shell predeclares `1.7.1`, whose `bool_flag`
+lacks the `scope` attribute. The build now predeclares the pinned TensorFlow
+workspace's Skylib `1.9.0`, SHA256
 `3b5b49006181f5f8ff626ef8ddceaa95e9bb8ad294f7b5d7b11ea9f7ddaf8c59`.
-Unifying that dependency before its first declaration is the identified next
-build step. This is not evidence that Bazel itself needs upgrading.
+The first follow-up full build succeeded with official Bazel `7.6.1`: all four
+targets were analyzed and 4,350 actions completed in 1040.280 seconds. Both bridge
+sources, including the C++ model adapter, compiled and the main shared library
+linked. The complete 11-library bundle and `native-build.json` replaced the old
+v0.12 outputs only after verification passed. The new upstream GPU inventory
+includes `libwebgpu_dawn.so`.
 
-No new `.so` or provenance record has replaced the old tracked bundle. Current
-source is therefore **not release-ready** until the complete native build,
-provenance and APK/AAB checks succeed. Passing script/ELF regression tests does
-not establish that this C++ adapter compiled. See Android validation for the
-separate unrun device/model acceptance gates.
+Staging and installed-bundle checks passed for all 191 required C/bridge symbols
+and every ARM64 library's `PT_LOAD` alignment (at least 16 KiB). No second native
+repair build was needed. This is compilation and ABI evidence, not Android
+loading or Gemma inference. See Android validation for final APK/AAB verification
+and the separate unrun device/model acceptance gates.
 
 ## Callback ownership and control state
 

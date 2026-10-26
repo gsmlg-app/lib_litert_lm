@@ -9,11 +9,15 @@ runtime's Conversation, model chat template and processors.
 
 ## Runtime and acceptance status
 
-The source and generated ABI target **v0.18.1**, commit
+The source, generated ABI and bundled runtime use **v0.18.1**, commit
 `bda624851d74be34d4e1f7fac1fc4155939539c7`, NDK `28.2.13676358`, Bazel `7.6.1`.
 The main runtime, GPU libraries, vendor dispatch libraries, header, bindings and
 bridge must be built and verified together. A v0.12 bundle is incompatible and
 fails initialization; replacing only one library is unsupported.
+
+The complete ARM64 bundle has compiled and passed provenance, all 191 required
+C/bridge symbols and 16 KiB ELF checks. This does not establish Android native
+loading or model inference on a device.
 
 The tracked Gemma-4-E2B validation artifact is
 `gemma-4-E2B-it.litertlm` at revision

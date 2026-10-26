@@ -1,0 +1,68 @@
+{
+  "abi": "arm64-v8a",
+  "accelerators": [
+    "vulkan",
+    "npu"
+  ],
+  "bridge_abi": 1,
+  "build_flags": [
+    "--config=android_arm64",
+    "--config=public_cache",
+    "--define=litert_link_capi_so=false",
+    "--define=resolve_symbols_in_exec=false"
+  ],
+  "build_targets": [
+    "//c:liblitert_lm_c.so",
+    "@litert//litert/vendors/google_tensor/dispatch:dispatch_api_so",
+    "@litert//litert/vendors/qualcomm/dispatch:dispatch_api_so",
+    "@litert//litert/vendors/mediatek/dispatch:dispatch_api_so"
+  ],
+  "contract_files": {
+    "ffigen.yaml": "198cd14248d91561aa08397ae8f1c21fb4a0548696aa45529df372da6899791d",
+    "lib/src/bindings/litert_lm_bindings_generated.dart": "8287e5517fb376b54d0e2033f0bbcb9fc03d562dcdfb3ef64b98e4a89d83b111",
+    "native/litert_lm_bridge.cc": "19624e4619ff68d77f7c757d204f65cd77d8c7f3b8b4683f5fdb51b4ee0768e6",
+    "native/litert_lm_bridge.h": "5e9f3028a8c5499f995ed1962c1b8c826809b953e9ae842acccbd9a1bb3325fa",
+    "native/litert_lm_model_bridge.cc": "489a85b2b9316820f6ba47dd0e3a00b583d96926e4d7e7a660412320ae4a7cc5",
+    "third_party/litert_lm/c/api_export.h": "97489762c154658c6180d44c0a4b3479781cfe982a42920221189fe587e40637",
+    "third_party/litert_lm/c/conversation.h": "3746b206d0d75817228f20061c5ecef2ed5b59f0893b95701a57fbd60b77cde1",
+    "third_party/litert_lm/c/engine.h": "41c38c182e736f3c239785b474e7c9d145cd711a1d5dc9882f403e0319953584",
+    "third_party/litert_lm/c/error_reporter.h": "beb23f102c302fd535ee3608e96587b7d63e377213c7ba509192fc47ac467541",
+    "third_party/litert_lm/c/model_info.h": "486634c2299ae12f6a1134639677b1fccc890f7d89242296aacf0fcf51a6cbd5",
+    "tool/build_litert_lm_android.sh": "add0e9a6c99ce6c891662e20d53099cd52b5644940402e86ce27fe6abbfd9b08"
+  },
+  "dependency_overrides": {
+    "bazel_skylib": {
+      "sha256": "3b5b49006181f5f8ff626ef8ddceaa95e9bb8ad294f7b5d7b11ea9f7ddaf8c59",
+      "version": "1.9.0"
+    },
+    "rules_cc": {
+      "sha256": "bd7124a844d0403b4b353bcea34d6c8b2ba88dc26881c26c9ee668da89b71846",
+      "version": "0.2.25"
+    }
+  },
+  "libraries": {
+    "libGemmaModelConstraintProvider.so": "c7c7188b831ae75fcc7ec6fe613118365b311995805423a4ca265372f07f4783",
+    "libLiteRtDispatch_GoogleTensor.so": "fa105a5ee1a635d3f51759686c5f933c6d15de01908fcf178fdf75388e3ae5d8",
+    "libLiteRtDispatch_MediaTek.so": "89496f2effaa455f514bacc1fbc2b3def3c13ceddeedde2291de7cecc69eb9b4",
+    "libLiteRtDispatch_Qualcomm.so": "6e2025c608d13bcce62da4d9d80006b50a4bd04693c2ef5f0331f33c8fa75185",
+    "libLiteRtGpuAccelerator.so": "75ee49f6f31faf44b3b5ac54f15d58abd75438bc9e2f9abcf47f24279d337bc8",
+    "libLiteRtOpenClAccelerator.so": "dfc714a0b59d5e1bf5155db7533070bf13da28574a3bc52396a4ba22d23d893c",
+    "libLiteRtTopKOpenClSampler.so": "0f77c888ad2a2ae044e189fd0fb87844c47fe46c8e68a677e6f204dac1096e24",
+    "libLiteRtTopKWebGpuSampler.so": "1ab8e8b49d3c7e4fa64c5a50f58d507de2db7936e4b8fc0d008782724aa5862c",
+    "libLiteRtWebGpuAccelerator.so": "57f8bd360a4293c57703d097a26ffa2dc89ee1884573289fdaf455f3098a6cdc",
+    "liblitert_lm_c.so": "c74036ae6f8b7397f63f0ff2b82c7958da8850fd2f8cee7ca33ced8741b2b1e3",
+    "libwebgpu_dawn.so": "657b2beb6456d50d7f6c86b315d5c2e97ad5a3870b134bcfcc2aa682ef467977"
+  },
+  "litert_lm_commit": "bda624851d74be34d4e1f7fac1fc4155939539c7",
+  "litert_lm_tag": "v0.18.1",
+  "patched_workspace_sha256": "4c2bc1db4a2541764cdcdebc0101ad1fb7aefcd1eff442a566dee52051193785",
+  "schema_version": 1,
+  "toolchain": {
+    "bazel": "7.6.1",
+    "ndk": "28.2.13676358"
+  },
+  "upstream_dependencies": {
+    "litert": "ca21dc99de51c76bdcc572afeea1dd937d3c9e5c",
+    "tensorflow": "a1179d3c224967bd979950b823d5ce2a7e8f4c94"
+  }
+}

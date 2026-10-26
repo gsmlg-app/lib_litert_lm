@@ -9,6 +9,59 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 
 class WorkspaceBootstrapTest(unittest.TestCase):
+    def skylib_command(self, root):
+        script = (ROOT / 'tool/build_litert_lm_android.sh').read_text()
+        patch = script[script.index('patch_bazel_skylib_archive() {'):
+                       script.index('\npatch_rules_cc_archive()')]
+        constants = ('BAZEL_SKYLIB_VERSION=1.9.0\n'
+                     'BAZEL_SKYLIB_SHA256=3b5b49006181f5f8ff626ef8ddceaa95e9bb8ad294f7b5d7b11ea9f7ddaf8c59\n')
+        return ['bash', '-c', 'set -euo pipefail\n' + constants + patch +
+                '\npatch_bazel_skylib_archive "$1"', 'test', str(root)]
+
+    def test_skylib_pin_precedes_rules_shell_and_survives_cached_repatch(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = pathlib.Path(temp)
+            workspace = root / 'WORKSPACE'
+            original = ('load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")\n'
+                        'rules_shell_dependencies()\ngo_rules_dependencies()\ntf_workspace3()\n')
+            workspace.write_text(original)
+            first = subprocess.run(self.skylib_command(root), capture_output=True, text=True)
+            self.assertEqual(first.returncode, 0, first.stderr)
+            output = workspace.read_text()
+            self.assertEqual(output.count('name = "bazel_skylib"'), 1)
+            self.assertLess(output.index('name = "bazel_skylib"'), output.index('rules_shell_dependencies()'))
+            self.assertIn('bazel-skylib-1.9.0.tar.gz', output)
+            self.assertIn('3b5b49006181f5f8ff626ef8ddceaa95e9bb8ad294f7b5d7b11ea9f7ddaf8c59', output)
+            second = subprocess.run(self.skylib_command(root), capture_output=True, text=True)
+            self.assertEqual(second.returncode, 0, second.stderr)
+            self.assertEqual(workspace.read_text(), output)
+
+    def test_skylib_patch_rejects_an_unexpected_existing_declaration(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = pathlib.Path(temp)
+            workspace = root / 'WORKSPACE'
+            original = ('load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")\n'
+                        'http_archive(name = "bazel_skylib", url = "unexpected")\n')
+            workspace.write_text(original)
+            result = subprocess.run(self.skylib_command(root), capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('Unexpected upstream Skylib declaration', result.stderr)
+            self.assertEqual(workspace.read_text(), original)
+
+    def test_skylib_patch_rejects_cached_pin_drift(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = pathlib.Path(temp)
+            workspace = root / 'WORKSPACE'
+            workspace.write_text('load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")\n')
+            first = subprocess.run(self.skylib_command(root), capture_output=True, text=True)
+            self.assertEqual(first.returncode, 0, first.stderr)
+            drifted = workspace.read_text().replace('bazel-skylib-1.9.0', 'bazel-skylib-1.7.1')
+            workspace.write_text(drifted)
+            result = subprocess.run(self.skylib_command(root), capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('Cached Skylib patch differs', result.stderr)
+            self.assertEqual(workspace.read_text(), drifted)
+
     def test_oss_dispatch_patch_removes_only_disabled_private_hook_dependency(self):
         script = (ROOT / 'tool/build_litert_lm_android.sh').read_text()
         self.assertIn('patch_litert_oss_hooks() {', script)
