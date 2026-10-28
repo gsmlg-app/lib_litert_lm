@@ -10,7 +10,9 @@ Version 0.1.2 also fixes a generation blocker found while verifying adoption:
 the v0.18.1 CPU sampler accepts `TOP_P`, while the wrapper selected `TOP_K`.
 The wrapper now uses `TOP_P` with `p=1`, retaining the requested top-k,
 temperature, and seed. This also supports the runtime's CPU sampling fallback
-for GPU engines. Use 0.1.2 or newer for that correction.
+for GPU engines. Adopt 0.1.3 or newer from pub.dev. The 0.1.2 GitHub release
+contains the same runtime correction, but its pub.dev upload failed because
+publishing credentials expired during the build; 0.1.3 corrects that workflow.
 
 ## Adopt the complete package
 

@@ -1,3 +1,13 @@
+## 0.1.3
+
+- Obtain GitHub OIDC publishing credentials after native tests, Android builds
+  and package validation, immediately before publication, so long builds cannot
+  expire the token before upload.
+- Include the sampler correction and Pixel Fold lifecycle validation from 0.1.2.
+  The 0.1.2 GitHub release remains available, but its pub.dev upload failed with
+  `Invalid JWT token: invalid timestamps`; 0.1.3 is the publication retry under
+  a fresh immutable version tag.
+
 ## 0.1.2
 
 - Use the runtime-supported TOP_P sampler with p=1 to preserve top-k, temperature

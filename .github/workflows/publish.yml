@@ -41,9 +41,6 @@ jobs:
         with:
           ref: ${{ env.PUBLISH_REF }}
 
-      - name: Setup Dart OIDC credentials
-        uses: dart-lang/setup-dart@v1
-
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -163,6 +160,11 @@ jobs:
       - name: Validate package
         if: ${{ steps.published.outputs.should_publish == 'true' }}
         run: flutter pub publish --dry-run --ignore-warnings
+
+      # GitHub OIDC tokens are short-lived; obtain one after the build gates.
+      - name: Setup Dart OIDC credentials
+        if: ${{ steps.published.outputs.should_publish == 'true' }}
+        uses: dart-lang/setup-dart@v1
 
       - name: Publish package
         if: ${{ steps.published.outputs.should_publish == 'true' }}
