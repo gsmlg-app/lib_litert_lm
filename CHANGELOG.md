@@ -1,3 +1,19 @@
+## 0.1.2
+
+- Use the runtime-supported TOP_P sampler with p=1 to preserve top-k, temperature
+  and seed behavior on CPU and GPU fallback. Fix the real-device
+  `UNIMPLEMENTED: Sampler type: 1 not implemented yet` generation failure and
+  cover it with the native-thread FFI fixture.
+- Add a real-model Android lifecycle test for repeated Future/Stream requests
+  across two conversations, decode cancellation, subscription cancellation,
+  retry, active engine unload, and reload.
+- Pass that focused lifecycle test on Pixel Fold / Android 17 API 37 in release
+  mode with both CPU and GPU, the pinned Gemma E2B model and a 4096-token context.
+  This is not near-capacity, media, performance or downstream queue acceptance.
+- Document complete source/JNI adoption from bundled 0.1.0 and the remaining
+  downstream FIFO/queued-cancellation acceptance for issue #3. The callback
+  ownership repair and matching v0.18.1 native bundle remain those of 0.1.1.
+
 ## 0.1.1
 
 - Target LiteRT-LM v0.18.1 at bda624851d74be34d4e1f7fac1fc4155939539c7;

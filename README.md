@@ -15,9 +15,12 @@ The main runtime, GPU libraries, vendor dispatch libraries, header, bindings and
 bridge must be built and verified together. A v0.12 bundle is incompatible and
 fails initialization; replacing only one library is unsupported.
 
+For vendored 0.1.0 installations affected by callback lifetime crashes, follow
+the [adoption and device acceptance guide](doc/upgrading-from-0.1.0.md).
+
 The complete ARM64 bundle has compiled and passed provenance, all 191 required
-C/bridge symbols and 16 KiB ELF checks. This does not establish Android native
-loading or model inference on a device.
+C/bridge symbols and 16 KiB ELF checks. Device evidence is recorded separately
+from those artifact checks.
 
 The tracked Gemma-4-E2B validation artifact is
 `gemma-4-E2B-it.litertlm` at revision
@@ -27,11 +30,14 @@ Its published capacity is **32K**. Artifact metadata is recorded in
 [tool/models/gemma-4-e2b.json](tool/models/gemma-4-e2b.json); model names alone do
 not establish capacity or backend compatibility.
 
-**No Android device or Gemma model run has been verified in this repair.**
-The 4K/8K/16K/32K tiers remain unverified. Native ownership fixtures establish
-FFI safety properties; they do not establish Gemma tokenization, inference,
-long-context capacity, or device performance. See
-[Android validation](doc/android-validation.md) for the run matrix and evidence.
+The focused native lifecycle test has passed on a physical Pixel Fold with the
+pinned Gemma model in release mode, using CPU/GPU and a 4096-token configured
+context.
+It covers short sequential requests, cancellation/retry, active unload and reload;
+the downstream application's adoption and request queue remain unverified.
+The 4K/8K/16K/32K near-capacity tiers and media/performance matrix remain
+unverified. Native ownership fixtures establish separate FFI safety properties.
+See [Android validation](doc/android-validation.md) for the run matrix and evidence.
 See [native build](doc/native-build.md) for build status and bundle gates.
 
 ## Android setup

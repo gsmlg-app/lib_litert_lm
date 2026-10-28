@@ -823,11 +823,14 @@ final class _NativeWorker {
     final config = b.litert_lm_session_config_create();
     _checkPointer(config, 'Cannot create session settings');
     final sampler = b.litert_lm_sampler_params_create(
-      c.LiteRtLmSamplerType.kLiteRtLmSamplerTypeTopK,
+      c.LiteRtLmSamplerType.kLiteRtLmSamplerTypeTopP,
     );
     try {
       _checkPointer(sampler, 'Cannot create sampler settings');
       b.litert_lm_sampler_params_set_top_k(sampler, session.params.topK);
+      // v0.18.1 CPU sampling (also a GPU fallback) implements TOP_P only.
+      // p=1 keeps all top-k candidates and preserves the public sampling API.
+      b.litert_lm_sampler_params_set_top_p(sampler, 1);
       b.litert_lm_sampler_params_set_temperature(
         sampler,
         session.params.temperature,

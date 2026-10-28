@@ -11,6 +11,7 @@
 #include <thread>
 #include <vector>
 static std::atomic<int> handles{0}, started{0}, cancelled{0}, completed{0};
+static std::atomic<float> sampler_p{0};
 static std::mutex barrier_mutex;
 static std::condition_variable barrier;
 static bool released = false;
@@ -19,13 +20,14 @@ struct LiteRtLmStreamChunk { const char* text; bool final; const char* error; };
 struct LiteRtLmEngineSettings { int context = 4096; std::string vision, audio; };
 struct LiteRtLmEngine { int context; };
 struct LiteRtLmLoadedFile {};
-struct LiteRtLmSamplerParams {};
-struct LiteRtLmSessionConfig { int output = 256; };
-struct LiteRtLmConversationConfig { std::string history; int output = 256; };
+struct LiteRtLmSamplerParams { LiteRtLmSamplerType type; };
+struct LiteRtLmSessionConfig { int output = 256; LiteRtLmSamplerType sampler = kLiteRtLmSamplerTypeUnspecified; };
+struct LiteRtLmConversationConfig { std::string history; int output = 256; LiteRtLmSamplerType sampler = kLiteRtLmSamplerTypeUnspecified; };
 struct LiteRtLmInputData { std::string text; };
 struct LiteRtLmTokenizeResult { std::vector<int> ids; };
 struct LiteRtLmBenchmarkInfo { std::vector<int> prefill, decode; };
 struct State {
+  LiteRtLmSamplerType sampler = kLiteRtLmSamplerTypeUnspecified;
   std::thread task;
   std::atomic<bool> stop{false};
   std::atomic<int> used{0};
@@ -44,6 +46,13 @@ static int scalars(const std::string& text) {
   return count;
 }
 static int Start(State& state, bool chat, std::string input, LiteRtLmStreamCallback cb, void* data) {
+  // v0.18.1 CreateCpuSampler implements TOP_P, not TOP_K or GREEDY. GPU
+  // sampling can also fall back to this implementation. Do not hide that ABI
+  // contract behind a fixture which silently ignores sampler configuration.
+  if (state.sampler != kLiteRtLmSamplerTypeTopP) {
+    last_error = "UNIMPLEMENTED: Sampler type: " + std::to_string(state.sampler) + " not implemented yet.";
+    return -1;
+  }
   if (state.task.joinable()) state.task.join();
   state.stop = false;
   state.input = scalars(input);
@@ -107,6 +116,7 @@ int fixture_handles() { return handles; }
 int fixture_started() { return started; }
 int fixture_cancelled() { return cancelled; }
 int fixture_completed() { return completed; }
+float fixture_sampler_p() { return sampler_p; }
 int fixture_wait_started(int target) {
   std::unique_lock<std::mutex> lock(barrier_mutex);
   return barrier.wait_for(lock, std::chrono::seconds(5), [=] { return started >= target; }) ? 1 : 0;
@@ -154,20 +164,21 @@ LiteRtLmSessionConfig* litert_lm_session_config_create() { return new LiteRtLmSe
 void litert_lm_session_config_delete(LiteRtLmSessionConfig* p) { delete p; }
 void litert_lm_session_config_set_max_output_tokens(LiteRtLmSessionConfig* p, int n) { p->output = n; }
 void litert_lm_session_config_set_apply_prompt_template(LiteRtLmSessionConfig*, bool) {}
-void litert_lm_session_config_set_sampler_params(LiteRtLmSessionConfig*, const LiteRtLmSamplerParams*) {}
-LiteRtLmSamplerParams* litert_lm_sampler_params_create(LiteRtLmSamplerType) { return new LiteRtLmSamplerParams; }
+void litert_lm_session_config_set_sampler_params(LiteRtLmSessionConfig* config, const LiteRtLmSamplerParams* params) { config->sampler = params->type; }
+LiteRtLmSamplerParams* litert_lm_sampler_params_create(LiteRtLmSamplerType type) { sampler_p = 0; return new LiteRtLmSamplerParams{type}; }
 void litert_lm_sampler_params_delete(LiteRtLmSamplerParams* p) { delete p; }
 void litert_lm_sampler_params_set_top_k(LiteRtLmSamplerParams*, int32_t) {}
+void litert_lm_sampler_params_set_top_p(LiteRtLmSamplerParams*, float p) { sampler_p = p; }
 void litert_lm_sampler_params_set_temperature(LiteRtLmSamplerParams*, float) {}
 void litert_lm_sampler_params_set_seed(LiteRtLmSamplerParams*, int32_t) {}
 LiteRtLmConversationConfig* litert_lm_conversation_config_create() { return new LiteRtLmConversationConfig; }
 void litert_lm_conversation_config_delete(LiteRtLmConversationConfig* p) { delete p; }
-void litert_lm_conversation_config_set_session_config(LiteRtLmConversationConfig* p, const LiteRtLmSessionConfig* s) { p->output = s->output; }
+void litert_lm_conversation_config_set_session_config(LiteRtLmConversationConfig* p, const LiteRtLmSessionConfig* s) { p->output = s->output; p->sampler = s->sampler; }
 void litert_lm_conversation_config_set_filter_channel_content_from_kv_cache(LiteRtLmConversationConfig*, bool) {}
 void litert_lm_conversation_config_set_messages(LiteRtLmConversationConfig* p, const char* value) { p->history = value; }
 LiteRtLmConversation* litert_lm_conversation_create(LiteRtLmEngine*, LiteRtLmConversationConfig* config) {
   auto* p = new LiteRtLmConversation;
-  if (config) p->state.used = scalars(config->history);
+  if (config) { p->state.used = scalars(config->history); p->state.sampler = config->sampler; }
   return p;
 }
 void litert_lm_conversation_delete(LiteRtLmConversation* p) { delete p; }
@@ -177,7 +188,7 @@ const char* litert_lm_conversation_render_message_to_string(LiteRtLmConversation
   p->state.rendered = input; return p->state.rendered.c_str();
 }
 int litert_lm_conversation_get_token_count(LiteRtLmConversation* p) { return p->state.used; }
-LiteRtLmSession* litert_lm_engine_create_session(LiteRtLmEngine*, LiteRtLmSessionConfig*) { return new LiteRtLmSession; }
+LiteRtLmSession* litert_lm_engine_create_session(LiteRtLmEngine*, LiteRtLmSessionConfig* config) { auto* p = new LiteRtLmSession; if (config) p->state.sampler = config->sampler; return p; }
 void litert_lm_session_delete(LiteRtLmSession* p) { delete p; }
 void litert_lm_session_cancel_process(LiteRtLmSession* p) { ++cancelled; p->state.stop = true; barrier.notify_all(); }
 LiteRtLmInputData* litert_lm_input_data_create(LiteRtLmInputDataType, const void* text, size_t n) { return new LiteRtLmInputData{std::string(static_cast<const char*>(text), n)}; }

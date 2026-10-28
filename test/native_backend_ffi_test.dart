@@ -115,6 +115,40 @@ void main() {
     },
   );
   test(
+    'CPU-compatible sampling preserves top-k and zero-temperature requests',
+    () async {
+      final b = await backend();
+      final e = await engine(b);
+      for (final raw in [false, true]) {
+        for (final temperature in [0.0, 0.8]) {
+          final s = (await b.createSession(
+            e,
+            LiteRtLmGenerationParams(
+              applyPromptTemplate: !raw,
+              temperature: temperature,
+              topK: 17,
+              seed: 42,
+            ),
+          )).valueOrNull!;
+          try {
+            final result = await b.generate(s, 'sampler compatibility');
+            expect(result.errorOrNull, isNull);
+            expect(result.valueOrNull, 'owned 中文');
+            expect(
+              fixture.samplerP(),
+              1.0,
+              reason:
+                  'Keep every top-k candidate; do not add nucleus filtering',
+            );
+          } finally {
+            await b.disposeSession(s);
+          }
+        }
+      }
+      await b.close();
+    },
+  );
+  test(
     'Future cancellation reaches native during prefill and decode, then retry',
     () async {
       final b = await backend();
@@ -545,6 +579,9 @@ final class _Fixture {
       completed = lib.lookupFunction<Int32 Function(), int Function()>(
         'fixture_completed',
       ),
+      samplerP = lib.lookupFunction<Float Function(), double Function()>(
+        'fixture_sampler_p',
+      ),
       waitStarted = lib
           .lookupFunction<Int32 Function(Int32), int Function(int)>(
             'fixture_wait_started',
@@ -553,6 +590,7 @@ final class _Fixture {
         'fixture_release',
       );
   final int Function() handles, started, cancelled, completed;
+  final double Function() samplerP;
   final int Function(int) waitStarted;
   final void Function() release;
 }
